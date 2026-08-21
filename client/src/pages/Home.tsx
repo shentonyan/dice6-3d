@@ -44,13 +44,23 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
   });
 }
 
-function DiceRender({ angles }: { angles: { x: number; y: number } }) {
+function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const targetRef = useRef(new THREE.Euler(0, 0, 0));
+  const rollStartedAt = useRef(0);
+  const driftRef = useRef({ x: 0, y: 0, phase: 0 });
 
   useEffect(() => {
     targetRef.current.set(THREE.MathUtils.degToRad(angles.x), THREE.MathUtils.degToRad(angles.y), 0);
-  }, [angles]);
+    if (rolling) {
+      rollStartedAt.current = performance.now();
+      driftRef.current = {
+        x: (Math.random() > 0.5 ? 1 : -1) * (0.095 + Math.random() * 0.035),
+        y: (Math.random() - 0.5) * 0.045,
+        phase: Math.random() * 0.45,
+      };
+    }
+  }, [angles, rolling]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -127,9 +137,17 @@ function DiceRender({ angles }: { angles: { x: number; y: number } }) {
       previousTime = now;
       lastRenderTime = now;
       const target = targetRef.current;
-      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, 11, delta);
-      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, 11, delta);
-      die.position.y = 0;
+      const elapsed = now - rollStartedAt.current;
+      const isRolling = rolling && elapsed < 920;
+      const progress = isRolling ? Math.min(elapsed / 920, 1) : 1;
+      const pauseFactor = isRolling && progress > 0.44 && progress < 0.56 ? 0.16 : 1;
+      const drift = driftRef.current;
+      const sway = isRolling ? Math.sin(progress * Math.PI) * (1 - progress * 0.25) : 0;
+      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, 11 * pauseFactor, delta);
+      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, 11 * pauseFactor, delta);
+      die.position.x = THREE.MathUtils.damp(die.position.x, drift.x * sway, isRolling ? 16 : 12, delta);
+      die.position.y = THREE.MathUtils.damp(die.position.y, drift.y * sway, isRolling ? 16 : 12, delta);
+      die.rotation.z = THREE.MathUtils.damp(die.rotation.z, isRolling ? Math.sin((progress + drift.phase) * Math.PI * 2) * 0.035 * (1 - progress) : 0, 10, delta);
       die.scale.setScalar(1);
       renderer.render(scene, camera);
     };
@@ -210,7 +228,7 @@ export default function Home() {
         {isFullscreen ? <Minimize2 size={17} strokeWidth={1.5} /> : <Maximize2 size={17} strokeWidth={1.5} />}
       </button>
       <button className={`die-button ${rolling ? "is-rolling" : ""}`} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
-        <DiceRender angles={angles} />
+        <DiceRender angles={angles} rolling={rolling} />
       </button>
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${value} 点`}</span>
     </main>
