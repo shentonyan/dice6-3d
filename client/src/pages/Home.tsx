@@ -155,13 +155,15 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       const pauseFactor = isRolling && progress > 0.44 && progress < 0.56 ? 0.16 : 1;
       const drift = driftRef.current;
       const sway = isRolling ? Math.sin(progress * Math.PI) * (1 - progress * 0.25) : 0;
+      const settleProgress = isSettling ? (elapsed - 800) / 120 : 0;
+      const landingCompression = isSettling ? Math.sin(settleProgress * Math.PI) : 0;
       const settleDamping = isSettling ? 30 : 12;
       die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, isRolling ? 11 * pauseFactor : settleDamping, delta);
       die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, isRolling ? 11 * pauseFactor : settleDamping, delta);
       die.position.x = THREE.MathUtils.damp(die.position.x, drift.x * sway, isRolling ? 16 : settleDamping, delta);
-      die.position.y = THREE.MathUtils.damp(die.position.y, drift.y * sway, isRolling ? 16 : settleDamping, delta);
+      die.position.y = THREE.MathUtils.damp(die.position.y, drift.y * sway - landingCompression * 0.018, isRolling ? 16 : settleDamping, delta);
       die.rotation.z = THREE.MathUtils.damp(die.rotation.z, isRolling ? Math.sin((progress + drift.phase) * Math.PI * 2) * 0.035 * (1 - progress) : 0, isSettling ? 32 : 10, delta);
-      die.scale.setScalar(1);
+      die.scale.setScalar(1 - landingCompression * 0.006);
       renderer.render(scene, camera);
     };
     frameId = requestAnimationFrame(animate);
@@ -189,7 +191,9 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
   const [showIntroPulse, setShowIntroPulse] = useState(() => localStorage.getItem("dice6-intro-pulse") !== "seen");
+  const [landingValue, setLandingValue] = useState<DiceValue | null>(null);
   const fullscreenHideTimer = useRef<number | null>(null);
+  const landingResultTimer = useRef<number | null>(null);
 
   const triggerLandingHaptic = useCallback(() => {
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
@@ -229,6 +233,7 @@ export default function Home() {
 
   useEffect(() => () => {
     if (fullscreenHideTimer.current !== null) window.clearTimeout(fullscreenHideTimer.current);
+    if (landingResultTimer.current !== null) window.clearTimeout(landingResultTimer.current);
   }, []);
 
   useEffect(() => {
@@ -249,19 +254,24 @@ export default function Home() {
 
   const roll = useCallback(() => {
     if (rolling) return;
-    setRolling(true);
-    setDiceStates((current) => current.map((dice, index) => {
+    if (landingResultTimer.current !== null) window.clearTimeout(landingResultTimer.current);
+    setLandingValue(null);
+    const nextStates = diceStates.map((dice, index) => {
       const next = (Math.floor(Math.random() * 6) + 1) as DiceValue;
       const target = faceAngles[next];
       const baseX = Math.ceil((dice.angles.x - target.x) / 360) * 360;
       const baseY = Math.ceil((dice.angles.y - target.y) / 360) * 360;
       return { value: next, angles: { x: target.x + baseX + 720 + index * 34, y: target.y + baseY + 1080 + index * 48 } };
-    }));
+    });
+    setRolling(true);
+    setDiceStates(nextStates);
     window.setTimeout(() => {
       triggerLandingHaptic();
       setRolling(false);
+      setLandingValue(nextStates[0]?.value ?? null);
+      landingResultTimer.current = window.setTimeout(() => setLandingValue(null), 1100);
     }, 920);
-  }, [rolling, triggerLandingHaptic]);
+  }, [diceStates, rolling, triggerLandingHaptic]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -304,6 +314,7 @@ export default function Home() {
           </button>
         ))}
       </div>
+      {landingValue !== null && <output className="landing-result" aria-label={`结果：${landingValue} 点`}>{"●".repeat(landingValue)}</output>}
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${diceStates.map((dice) => dice.value).join("、")} 点`}</span>
     </main>
   );

@@ -29,10 +29,12 @@ button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 
 .dice-cluster.count-2 .die-render, .dice-cluster.count-3 .die-render, .dice-cluster.count-4 .die-render { width: 100%; }
 .die-render canvas { display: block; width: 100%; height: 100%; }
 .die-button.is-rolling .die-render { animation-play-state: paused; filter: none; }
+.landing-result { position: absolute; right: 0; bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem)); left: 0; margin: 0; color: rgba(255,255,255,.82); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif; font-size: .95rem; font-weight: 500; letter-spacing: .18em; line-height: 1; pointer-events: none; text-align: center; animation: landing-result 1.05s cubic-bezier(.23,1,.32,1) both; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @keyframes dice-breathe { 0%, 100% { filter: drop-shadow(0 0 3px rgba(205,237,251,.04)); transform: translateY(0); } 50% { filter: drop-shadow(0 0 17px rgba(205,237,251,.25)); transform: translateY(-7px); } }
 @keyframes dice-intro-pulse { 0%, 100% { filter: drop-shadow(0 0 3px rgba(205,237,251,.04)); transform: translateY(0); } 35% { filter: drop-shadow(0 0 25px rgba(205,237,251,.42)); transform: translateY(-10px); } 62% { filter: drop-shadow(0 0 9px rgba(205,237,251,.15)); transform: translateY(-2px); } }
+@keyframes landing-result { 0% { opacity: 0; transform: translateY(4px); } 16%, 72% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-2px); } }
 .black-void.intro-pulse .count-1 .die-render { animation: dice-intro-pulse 1.8s cubic-bezier(.23,1,.32,1) 1; }
 @media (min-width: 700px) and (max-width: 1023px) { .black-void { --die-canvas: min(48vw, 34rem, 72svh); }.dice-cluster.count-1, .dice-cluster.count-1 .die-button { width: min(66vw, calc(var(--die-canvas) + 9rem)); }.dice-cluster.count-2, .dice-cluster.count-3, .dice-cluster.count-4 { width: min(62vw, 40rem); } }
 @media (min-width: 1024px) { .black-void { --die-canvas: min(35vw, 38rem, 72svh); }.dice-cluster.count-1, .dice-cluster.count-1 .die-button { width: min(50vw, calc(var(--die-canvas) + 10rem)); }.dice-cluster.count-2, .dice-cluster.count-3, .dice-cluster.count-4 { width: min(48vw, 46rem); }.black-void.is-fullscreen .dice-cluster.count-2, .black-void.is-fullscreen .dice-cluster.count-3, .black-void.is-fullscreen .dice-cluster.count-4 { width: min(72vw, 56rem); } }
