@@ -9,6 +9,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
+const EXTENDED_CONTROLS_ENABLED = false;
 
 const faceAngles: Record<DiceValue, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
@@ -54,17 +55,22 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
   });
 }
 
-function addTopHighlight(group: THREE.Group, face: DiceValue, material: THREE.Material) {
-  const strip = new THREE.Mesh(new THREE.PlaneGeometry(1.78, 0.022), material);
+function addTopHighlight(group: THREE.Group, face: DiceValue, coreMaterial: THREE.Material, featherMaterial: THREE.Material) {
+  const highlight = new THREE.Group();
+  const feather = new THREE.Mesh(new THREE.PlaneGeometry(1.56, 0.11), featherMaterial);
+  const core = new THREE.Mesh(new THREE.PlaneGeometry(1.32, 0.012), coreMaterial);
   const depth = 1.407;
   const inset = 1.09;
-  if (face === 1) strip.position.set(0, inset, depth);
-  if (face === 6) { strip.position.set(0, inset, -depth); strip.rotation.y = Math.PI; }
-  if (face === 2) { strip.position.set(depth, inset, 0); strip.rotation.y = Math.PI / 2; }
-  if (face === 5) { strip.position.set(-depth, inset, 0); strip.rotation.y = -Math.PI / 2; }
-  if (face === 3) { strip.position.set(0, depth, -inset); strip.rotation.x = -Math.PI / 2; }
-  if (face === 4) { strip.position.set(0, -depth, inset); strip.rotation.x = Math.PI / 2; }
-  group.add(strip);
+  feather.rotation.z = -0.17;
+  core.rotation.z = -0.17;
+  highlight.add(feather, core);
+  if (face === 1) highlight.position.set(0, inset, depth);
+  if (face === 6) { highlight.position.set(0, inset, -depth); highlight.rotation.y = Math.PI; }
+  if (face === 2) { highlight.position.set(depth, inset, 0); highlight.rotation.y = Math.PI / 2; }
+  if (face === 5) { highlight.position.set(-depth, inset, 0); highlight.rotation.y = -Math.PI / 2; }
+  if (face === 3) { highlight.position.set(0, depth, -inset); highlight.rotation.x = -Math.PI / 2; }
+  if (face === 4) { highlight.position.set(0, -depth, inset); highlight.rotation.x = Math.PI / 2; }
+  group.add(highlight);
 }
 
 function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
@@ -113,7 +119,8 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x111416, roughness: 0.48, metalness: 0 });
     const pipRimMaterial = new THREE.MeshBasicMaterial({ color: 0x87949a, transparent: true, opacity: 0.075, side: THREE.DoubleSide });
-    const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.11, blending: THREE.AdditiveBlending, depthWrite: false });
+    const highlightCoreMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.082, blending: THREE.AdditiveBlending, depthWrite: false });
+    const highlightFeatherMaterial = new THREE.MeshBasicMaterial({ color: 0xdceff7, transparent: true, opacity: 0.028, blending: THREE.AdditiveBlending, depthWrite: false });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 18, 0.52), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial, pipRimMaterial);
@@ -122,12 +129,12 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 4, 4, pipMaterial, pipRimMaterial);
     addPips(die, 5, 5, pipMaterial, pipRimMaterial);
     addPips(die, 6, 6, pipMaterial, pipRimMaterial);
-    addTopHighlight(die, 1, highlightMaterial);
-    addTopHighlight(die, 2, highlightMaterial);
-    addTopHighlight(die, 3, highlightMaterial);
-    addTopHighlight(die, 4, highlightMaterial);
-    addTopHighlight(die, 5, highlightMaterial);
-    addTopHighlight(die, 6, highlightMaterial);
+    addTopHighlight(die, 1, highlightCoreMaterial, highlightFeatherMaterial);
+    addTopHighlight(die, 2, highlightCoreMaterial, highlightFeatherMaterial);
+    addTopHighlight(die, 3, highlightCoreMaterial, highlightFeatherMaterial);
+    addTopHighlight(die, 4, highlightCoreMaterial, highlightFeatherMaterial);
+    addTopHighlight(die, 5, highlightCoreMaterial, highlightFeatherMaterial);
+    addTopHighlight(die, 6, highlightCoreMaterial, highlightFeatherMaterial);
 
     const keyLight = new THREE.DirectionalLight(0xf9fbfb, 3.75);
     keyLight.position.set(-0.65, 4.8, 6.5);
@@ -193,7 +200,8 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       ceramic.dispose();
       pipMaterial.dispose();
       pipRimMaterial.dispose();
-      highlightMaterial.dispose();
+      highlightCoreMaterial.dispose();
+      highlightFeatherMaterial.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -290,7 +298,7 @@ export default function Home() {
         event.preventDefault();
         roll();
       }
-      if (event.code === "KeyF") {
+      if (EXTENDED_CONTROLS_ENABLED && event.code === "KeyF") {
         event.preventDefault();
         toggleFullscreen();
       }
@@ -302,6 +310,7 @@ export default function Home() {
   const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷 ${diceCount} 枚骰子，当前为 ${diceStates.map((dice) => dice.value).join("、")} 点`), [diceCount, diceStates, rolling]);
 
   const revealControlFromEdge = (event: React.PointerEvent<HTMLElement>) => {
+    if (!EXTENDED_CONTROLS_ENABLED) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const nearTopOrRightEdge = event.clientX > bounds.right - 56 || event.clientY < bounds.top + 56;
     if (nearTopOrRightEdge) revealFullscreenControl();
@@ -309,12 +318,14 @@ export default function Home() {
 
   return (
     <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""} ${showIntroPulse ? "intro-pulse" : ""}`} onPointerMove={revealControlFromEdge} onPointerDown={revealControlFromEdge}>
-      <div className={`dice-mode-picker ${fullscreenControlVisible ? "is-visible" : ""}`} role="group" aria-label="骰子数量">
-        {[1, 2, 3, 4].map((count) => <button key={count} type="button" onClick={() => selectDiceCount(count)} aria-pressed={diceCount === count} tabIndex={fullscreenControlVisible ? 0 : -1}>{count}</button>)}
-      </div>
-      <button className={`fullscreen-button ${fullscreenControlVisible ? "is-visible" : ""}`} type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"} tabIndex={fullscreenControlVisible ? 0 : -1}>
-        {isFullscreen ? <Minimize2 size={17} strokeWidth={1.5} /> : <Maximize2 size={17} strokeWidth={1.5} />}
-      </button>
+      {EXTENDED_CONTROLS_ENABLED && <>
+        <div className={`dice-mode-picker ${fullscreenControlVisible ? "is-visible" : ""}`} role="group" aria-label="骰子数量">
+          {[1, 2, 3, 4].map((count) => <button key={count} type="button" onClick={() => selectDiceCount(count)} aria-pressed={diceCount === count} tabIndex={fullscreenControlVisible ? 0 : -1}>{count}</button>)}
+        </div>
+        <button className={`fullscreen-button ${fullscreenControlVisible ? "is-visible" : ""}`} type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"} tabIndex={fullscreenControlVisible ? 0 : -1}>
+          {isFullscreen ? <Minimize2 size={17} strokeWidth={1.5} /> : <Maximize2 size={17} strokeWidth={1.5} />}
+        </button>
+      </>}
       <div className={`dice-cluster count-${diceCount}`} aria-label={currentLabel}>
         {diceStates.map((dice, index) => (
           <button className={`die-button ${rolling ? "is-rolling" : ""}`} key={index} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
