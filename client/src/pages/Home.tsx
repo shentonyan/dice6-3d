@@ -53,7 +53,7 @@ function playDiceSound() {
 }
 
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material) {
-  const discGeometry = new THREE.CircleGeometry(0.145, 28);
+  const discGeometry = new THREE.CircleGeometry(0.145, 40);
   const depth = 1.408;
   const spacing = 0.57;
 
@@ -88,23 +88,25 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     camera.position.set(0, 0, 8.65);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1.2;
     host.appendChild(renderer.domElement);
 
     const die = new THREE.Group();
     die.rotation.set(0, 0, 0);
     scene.add(die);
 
-    const ceramic = new THREE.MeshStandardMaterial({
+    const ceramic = new THREE.MeshPhysicalMaterial({
       color: 0xf8fafb,
-      roughness: 0.52,
+      roughness: 0.38,
       metalness: 0,
+      clearcoat: 0.16,
+      clearcoatRoughness: 0.42,
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x090a0b, roughness: 0.32, metalness: 0 });
-    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 14, 0.52), ceramic);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 16, 0.52), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial);
     addPips(die, 2, 2, pipMaterial);
@@ -113,16 +115,16 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 5, 5, pipMaterial);
     addPips(die, 6, 6, pipMaterial);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 4.7);
-    keyLight.position.set(-3.5, 4.2, 6);
+    const keyLight = new THREE.DirectionalLight(0xfffef9, 5.2);
+    keyLight.position.set(-3.8, 4.6, 6);
     scene.add(keyLight);
-    const coolFill = new THREE.DirectionalLight(0xd7edff, 1.35);
-    coolFill.position.set(4, 0.4, 3);
+    const coolFill = new THREE.DirectionalLight(0xddecf5, 1.15);
+    coolFill.position.set(4.4, 0.8, 3.5);
     scene.add(coolFill);
-    const rimLight = new THREE.DirectionalLight(0xbfd9e8, 1.55);
-    rimLight.position.set(0, 4, -4);
+    const rimLight = new THREE.DirectionalLight(0xd7ebf5, 1.8);
+    rimLight.position.set(1.4, 3.8, -4.5);
     scene.add(rimLight);
-    scene.add(new THREE.AmbientLight(0xffffff, 1.45));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x35414a, 1.35));
 
     const resize = () => {
       const bounds = host.getBoundingClientRect();
