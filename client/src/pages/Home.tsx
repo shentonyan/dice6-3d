@@ -12,8 +12,8 @@ type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 type HistoryEntry = { id: string; value: DiceValue };
 const EXTENDED_CONTROLS_ENABLED = false;
 const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
-const ROLL_DURATION = 3000;
-const ROLL_MOTION_DURATION = 2740;
+const ROLL_DURATION = 2100;
+const ROLL_MOTION_DURATION = 1840;
 const HISTORY_REVEAL_DELAY = 1250;
 const MAX_HISTORY_ENTRIES = 512;
 
