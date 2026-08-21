@@ -1,6 +1,6 @@
 /**
- * Dice6 / Black Void — pure roll edition.
- * A single softly lit ceramic die remains the entire interface: tap to roll, with only an edge-revealed fullscreen control.
+ * Dice6 / Black Void — history whisper edition.
+ * The ceramic die remains visually dominant; completed rolls become an ultra-quiet, right-aligned instrument ribbon at the bottom.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -13,6 +13,21 @@ const EXTENDED_CONTROLS_ENABLED = false;
 const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
 const ROLL_DURATION = 2480;
 const ROLL_MOTION_DURATION = 2240;
+const MAX_HISTORY_ENTRIES = 512;
+
+function loadRollHistory(): DiceValue[] {
+  try {
+    const saved = localStorage.getItem("dice6-roll-history");
+    if (!saved) return [];
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((value): value is DiceValue => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6)
+      .slice(-MAX_HISTORY_ENTRIES);
+  } catch {
+    return [];
+  }
+}
 
 const faceAngles: Record<DiceValue, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
@@ -195,8 +210,10 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
 
 export default function Home() {
   const rootRef = useRef<HTMLElement>(null);
+  const historyStripRef = useRef<HTMLDivElement>(null);
   const [diceCount, setDiceCount] = useState(1);
   const [diceStates, setDiceStates] = useState<DiceState[]>(() => createDiceStates(1));
+  const [rollHistory, setRollHistory] = useState<DiceValue[]>(loadRollHistory);
   const [rolling, setRolling] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
@@ -290,6 +307,20 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [showIntroPulse]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("dice6-roll-history", JSON.stringify(rollHistory));
+    } catch {
+      // The history strip remains usable for the current session if storage is unavailable.
+    }
+    if (!rollHistory.length) return;
+    const frame = window.requestAnimationFrame(() => {
+      const strip = historyStripRef.current;
+      if (strip) strip.scrollTo({ left: strip.scrollWidth, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [rollHistory]);
+
   const selectDiceCount = (count: number) => {
     if (rolling) return;
     setDiceCount(count);
@@ -311,6 +342,7 @@ export default function Home() {
     playDiceSound();
     window.setTimeout(() => {
       triggerLandingHaptic();
+      setRollHistory((history) => [...history, ...nextStates.map((dice) => dice.value)].slice(-MAX_HISTORY_ENTRIES));
       setRolling(false);
     }, ROLL_DURATION);
   }, [diceStates, playDiceSound, rolling, triggerLandingHaptic]);
@@ -360,6 +392,13 @@ export default function Home() {
           </button>
         ))}
       </div>
+      {rollHistory.length > 0 && <section className="history-panel" aria-label={`投掷历史，共 ${rollHistory.length} 次，最新结果在右侧`}>
+        <div ref={historyStripRef} className="history-viewport">
+          <div className="history-track">
+            {rollHistory.map((value, index) => <span className="history-value" key={`${index}-${value}`} style={{ opacity: 0.12 + 0.88 * ((index + 1) / rollHistory.length) ** 1.7 }}>{value}</span>)}
+          </div>
+        </div>
+      </section>}
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${diceStates.map((dice) => dice.value).join("、")} 点`}</span>
     </main>
   );

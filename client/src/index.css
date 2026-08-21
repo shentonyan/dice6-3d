@@ -1,6 +1,6 @@
 /*
- * Dice6 / Black Void — pure roll edition.
- * The canvas carries a continuous, Apple-inspired soft radius; a single die is the only visible interface.
+ * Dice6 / Black Void — history whisper edition.
+ * The single ceramic die owns the canvas; a bottom-aligned, fading numeric ribbon is subordinate instrument notation.
  */
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
@@ -30,6 +30,9 @@ button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 
 .dice-cluster.count-2 .die-render, .dice-cluster.count-3 .die-render, .dice-cluster.count-4 .die-render { width: 100%; }
 .die-render canvas { display: block; width: 100%; height: 100%; }
 .die-button.is-rolling .die-render { animation-play-state: paused; filter: none; }
+.history-panel { position: absolute; z-index: 2; right: max(1rem, env(safe-area-inset-right)); bottom: max(1.05rem, env(safe-area-inset-bottom)); left: max(1rem, env(safe-area-inset-left)); display: flex; justify-content: flex-end; pointer-events: none; }
+.history-viewport { width: min(100%, 33rem); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 17%, #000 100%); mask-image: linear-gradient(90deg, transparent 0%, #000 17%, #000 100%); }.history-viewport::-webkit-scrollbar { display: none; }
+.history-track { display: flex; min-width: 100%; width: max-content; align-items: center; justify-content: flex-end; gap: clamp(.28rem, 1.5vw, .52rem); padding: .15rem .08rem .08rem 3.75rem; }.history-value { flex: 0 0 auto; color: #e3eaed; font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace; font-size: clamp(.58rem, 2.5vw, .7rem); font-variant-numeric: tabular-nums; letter-spacing: .04em; line-height: 1; text-shadow: 0 0 8px rgba(221,241,248,.08); transition: opacity 520ms cubic-bezier(.23,1,.32,1); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @keyframes dice-breathe { 0%, 100% { filter: drop-shadow(0 0 3px rgba(205,237,251,.04)); transform: translateY(0); } 50% { filter: drop-shadow(0 0 17px rgba(205,237,251,.25)); transform: translateY(-7px); } }
