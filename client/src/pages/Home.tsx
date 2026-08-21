@@ -26,6 +26,48 @@ const pipPoints: Record<DiceValue, [number, number][]> = {
   6: [[-1, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [1, -1]],
 };
 
+function createShadowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 160;
+  canvas.height = 160;
+  const context = canvas.getContext("2d");
+  if (!context) return new THREE.Texture();
+  const gradient = context.createRadialGradient(80, 80, 2, 80, 80, 78);
+  gradient.addColorStop(0, "rgba(172, 208, 224, 0.54)");
+  gradient.addColorStop(0.34, "rgba(111, 148, 165, 0.22)");
+  gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 160, 160);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function playDiceSound() {
+  const AudioConstructor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioConstructor) return;
+  const context = new AudioConstructor();
+  const now = context.currentTime;
+  [
+    { time: 0, frequency: 1180, duration: 0.025, gain: 0.035 },
+    { time: 0.12, frequency: 920, duration: 0.03, gain: 0.028 },
+    { time: 0.26, frequency: 680, duration: 0.06, gain: 0.045 },
+  ].forEach(({ time, frequency, duration, gain }) => {
+    const oscillator = context.createOscillator();
+    const envelope = context.createGain();
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(frequency, now + time);
+    oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.58, now + time + duration);
+    envelope.gain.setValueAtTime(0.0001, now + time);
+    envelope.gain.exponentialRampToValueAtTime(gain, now + time + 0.005);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + time + duration);
+    oscillator.connect(envelope).connect(context.destination);
+    oscillator.start(now + time);
+    oscillator.stop(now + time + duration + 0.01);
+  });
+  window.setTimeout(() => void context.close(), 420);
+}
+
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material) {
   const discGeometry = new THREE.CircleGeometry(0.145, 28);
   const depth = 1.408;
@@ -59,7 +101,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(27, 1, 0.1, 100);
-    camera.position.set(0, 0.03, 8.65);
+    camera.position.set(0, 0.72, 8.65);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -74,13 +116,13 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
 
     const ceramic = new THREE.MeshPhysicalMaterial({
       color: 0xf7fcff,
-      roughness: 0.25,
+      roughness: 0.3,
       metalness: 0,
-      clearcoat: 0.16,
-      clearcoatRoughness: 0.22,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.3,
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x090a0b, roughness: 0.32, metalness: 0 });
-    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 8, 0.28), ceramic);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 12, 0.44), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial);
     addPips(die, 2, 2, pipMaterial);
@@ -88,6 +130,14 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 4, 4, pipMaterial);
     addPips(die, 5, 5, pipMaterial);
     addPips(die, 6, 6, pipMaterial);
+
+    const shadowTexture = createShadowTexture();
+    const shadowMaterial = new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, opacity: 0.9 });
+    const groundShadow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.2), shadowMaterial);
+    groundShadow.rotation.x = -Math.PI / 2;
+    groundShadow.position.y = -1.49;
+    groundShadow.scale.set(1.12, 0.64, 1);
+    scene.add(groundShadow);
 
     const keyLight = new THREE.DirectionalLight(0xffffff, 5.5);
     keyLight.position.set(-3.5, 4.2, 6);
@@ -118,8 +168,11 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, 10, 1 / 60);
       const remaining = Math.max(0, rollingUntil.current - now);
       const progress = 1 - remaining / 920;
-      die.position.y = remaining ? Math.sin(progress * Math.PI) * 0.2 : 0;
-      die.scale.setScalar(remaining ? 1 - Math.sin(progress * Math.PI) * 0.018 : 1);
+      const lift = remaining ? Math.sin(progress * Math.PI) : 0;
+      die.position.y = lift * 0.22;
+      die.scale.setScalar(1 - lift * 0.018);
+      groundShadow.scale.set(1.12 - lift * 0.32, 0.64 - lift * 0.19, 1);
+      shadowMaterial.opacity = 0.88 - lift * 0.56;
       renderer.render(scene, camera);
     };
     frameId = requestAnimationFrame(animate);
@@ -130,6 +183,9 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       body.geometry.dispose();
       ceramic.dispose();
       pipMaterial.dispose();
+      groundShadow.geometry.dispose();
+      shadowMaterial.dispose();
+      shadowTexture.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -153,8 +209,10 @@ export default function Home() {
     setRolling(true);
     setValue(next);
     setAngles({ x: target.x + baseX + 720, y: target.y + baseY + 1080 });
-    navigator.vibrate?.(10);
+    navigator.vibrate?.(8);
+    playDiceSound();
     window.setTimeout(() => {
+      navigator.vibrate?.([6, 24, 12]);
       setRolling(false);
       setHistory((items) => [next, ...items].slice(0, 6));
     }, 920);
@@ -175,7 +233,8 @@ export default function Home() {
 
   return (
     <main className="black-void">
-      <button className="die-button" type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
+      <button className={`die-button ${rolling ? "is-rolling" : ""}`} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
+        <span className="ambient-contact-shadow" aria-hidden="true" />
         <DiceRender angles={angles} rolling={rolling} />
       </button>
       <aside className="recent" aria-label="最近投掷记录">

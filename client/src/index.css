@@ -17,11 +17,13 @@ button { font: inherit; }
 button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 8px; }
 
 .black-void { position: relative; display: grid; min-height: 100svh; overflow: hidden; background: #000; place-items: center; }
-.die-button { display: grid; width: min(91vw, 33rem); aspect-ratio: 1; padding: 0; border: 0; background: transparent; place-items: center; touch-action: manipulation; transition: transform 140ms cubic-bezier(.23,1,.32,1); }
+.die-button { position: relative; display: grid; width: min(91vw, 33rem); aspect-ratio: 1; padding: 0; border: 0; background: transparent; place-items: center; touch-action: manipulation; transition: transform 140ms cubic-bezier(.23,1,.32,1); }
 .die-button:not(:disabled):active { transform: scale(.975); }
 .die-button:disabled { cursor: wait; }
-.die-render { display: block; width: min(76vw, 28rem); aspect-ratio: 1; }
+.die-render { position: relative; z-index: 1; display: block; width: min(76vw, 28rem); aspect-ratio: 1; }
 .die-render canvas { display: block; width: 100%; height: 100%; }
+.ambient-contact-shadow { position: absolute; z-index: 0; bottom: 19%; left: 50%; width: 61%; height: 8%; border-radius: 50%; background: radial-gradient(ellipse, rgba(181,213,226,.38) 0%, rgba(126,157,170,.17) 42%, transparent 74%); filter: blur(9px); transform: translateX(-50%) scaleX(1.22); transition: transform 750ms cubic-bezier(.16,.82,.17,1), opacity 750ms cubic-bezier(.16,.82,.17,1); }
+.die-button.is-rolling .ambient-contact-shadow { opacity: .45; transform: translateX(-50%) scale(.72); }
 
 .recent { position: absolute; right: 1.35rem; bottom: max(1.3rem, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: .55rem; color: rgba(255,255,255,.34); font-size: .55rem; letter-spacing: .14em; }
 .recent-label { font-size: .53rem; }.recent-values { display: flex; align-items: center; gap: .32rem; }.recent-values i { display: grid; width: 1.12rem; height: 1.12rem; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; color: rgba(255,255,255,.78); font-style: normal; font-size: .58rem; letter-spacing: 0; place-items: center; animation: appear .2s cubic-bezier(.23,1,.32,1); }.recent-values .recent-empty { width: auto; height: auto; border: 0; color: rgba(255,255,255,.22); font-size: .72rem; }
