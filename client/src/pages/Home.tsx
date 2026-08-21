@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { Volume2, VolumeX, Vibrate } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -70,7 +71,7 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
 
 function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
   const hostRef = useRef<HTMLSpanElement>(null);
-  const targetRef = useRef(new THREE.Euler(-0.28, 0.48, 0));
+  const targetRef = useRef(new THREE.Euler(0, 0, 0));
   const rollingUntil = useRef(0);
 
   useEffect(() => {
@@ -84,7 +85,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(27, 1, 0.1, 100);
-    camera.position.set(0, 0.72, 8.65);
+    camera.position.set(0, 0, 8.65);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(1);
@@ -94,7 +95,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     host.appendChild(renderer.domElement);
 
     const die = new THREE.Group();
-    die.rotation.set(-0.28, 0.48, 0);
+    die.rotation.set(0, 0, 0);
     scene.add(die);
 
     const ceramic = new THREE.MeshStandardMaterial({
@@ -148,8 +149,6 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       const target = targetRef.current;
       die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, 11, delta);
       die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, 11, delta);
-      const remaining = Math.max(0, rollingUntil.current - now);
-      const progress = 1 - remaining / 920;
       die.position.y = 0;
       die.scale.setScalar(1);
       renderer.render(scene, camera);
@@ -174,7 +173,17 @@ export default function Home() {
   const [value, setValue] = useState<DiceValue>(1);
   const [history, setHistory] = useState<DiceValue[]>([]);
   const [rolling, setRolling] = useState(false);
-  const [angles, setAngles] = useState({ x: -16, y: 28 });
+  const [angles, setAngles] = useState({ x: 0, y: 0 });
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("dice6-sound") !== "off");
+  const [hapticsEnabled, setHapticsEnabled] = useState(() => localStorage.getItem("dice6-haptics") !== "off");
+
+  useEffect(() => {
+    localStorage.setItem("dice6-sound", soundEnabled ? "on" : "off");
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("dice6-haptics", hapticsEnabled ? "on" : "off");
+  }, [hapticsEnabled]);
 
   const roll = useCallback(() => {
     if (rolling) return;
@@ -185,14 +194,14 @@ export default function Home() {
     setRolling(true);
     setValue(next);
     setAngles({ x: target.x + baseX + 720, y: target.y + baseY + 1080 });
-    navigator.vibrate?.(8);
-    playDiceSound();
+    if (hapticsEnabled) navigator.vibrate?.(8);
+    if (soundEnabled) playDiceSound();
     window.setTimeout(() => {
-      navigator.vibrate?.([6, 24, 12]);
+      if (hapticsEnabled) navigator.vibrate?.([6, 24, 12]);
       setRolling(false);
       setHistory((items) => [next, ...items].slice(0, 6));
     }, 920);
-  }, [angles, rolling]);
+  }, [angles, hapticsEnabled, rolling, soundEnabled]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -209,11 +218,21 @@ export default function Home() {
 
   return (
     <main className="black-void">
+      <div className="feedback-controls" aria-label="投掷反馈设置">
+        <button className={`feedback-button ${soundEnabled ? "is-active" : ""}`} type="button" onClick={() => setSoundEnabled((enabled) => !enabled)} aria-pressed={soundEnabled} aria-label={soundEnabled ? "关闭音效" : "开启音效"}>
+          {soundEnabled ? <Volume2 size={16} strokeWidth={1.6} /> : <VolumeX size={16} strokeWidth={1.6} />}
+        </button>
+        <button className={`feedback-button ${hapticsEnabled ? "is-active" : ""}`} type="button" onClick={() => setHapticsEnabled((enabled) => !enabled)} aria-pressed={hapticsEnabled} aria-label={hapticsEnabled ? "关闭震动" : "开启震动"}>
+          <Vibrate size={16} strokeWidth={1.6} />
+        </button>
+      </div>
       <button className="die-button" type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
         <DiceRender angles={angles} rolling={rolling} />
       </button>
       <aside className="recent" aria-label="最近投掷记录">
-        <span className="recent-label">RECENT</span>
+        <button className="recent-clear" type="button" onClick={() => setHistory([])} disabled={!history.length} aria-label="清空 Recent 记录" title="轻触清空记录">
+          <span>RECENT</span>{history.length > 0 && <i aria-hidden="true">×</i>}
+        </button>
         <span className="recent-values">
           {history.length ? history.map((item, index) => <i key={`${item}-${index}`}>{item}</i>) : <i className="recent-empty">—</i>}
         </span>
