@@ -55,24 +55,6 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
   });
 }
 
-function addTopHighlight(group: THREE.Group, face: DiceValue, coreMaterial: THREE.Material, featherMaterial: THREE.Material) {
-  const highlight = new THREE.Group();
-  const feather = new THREE.Mesh(new THREE.PlaneGeometry(1.56, 0.11), featherMaterial);
-  const core = new THREE.Mesh(new THREE.PlaneGeometry(1.32, 0.012), coreMaterial);
-  const depth = 1.407;
-  const inset = 1.09;
-  feather.rotation.z = -0.17;
-  core.rotation.z = -0.17;
-  highlight.add(feather, core);
-  if (face === 1) highlight.position.set(0, inset, depth);
-  if (face === 6) { highlight.position.set(0, inset, -depth); highlight.rotation.y = Math.PI; }
-  if (face === 2) { highlight.position.set(depth, inset, 0); highlight.rotation.y = Math.PI / 2; }
-  if (face === 5) { highlight.position.set(-depth, inset, 0); highlight.rotation.y = -Math.PI / 2; }
-  if (face === 3) { highlight.position.set(0, depth, -inset); highlight.rotation.x = -Math.PI / 2; }
-  if (face === 4) { highlight.position.set(0, -depth, inset); highlight.rotation.x = Math.PI / 2; }
-  group.add(highlight);
-}
-
 function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const targetRef = useRef(new THREE.Euler(0, 0, 0));
@@ -119,8 +101,6 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x111416, roughness: 0.48, metalness: 0 });
     const pipRimMaterial = new THREE.MeshBasicMaterial({ color: 0x87949a, transparent: true, opacity: 0.075, side: THREE.DoubleSide });
-    const highlightCoreMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.082, blending: THREE.AdditiveBlending, depthWrite: false });
-    const highlightFeatherMaterial = new THREE.MeshBasicMaterial({ color: 0xdceff7, transparent: true, opacity: 0.028, blending: THREE.AdditiveBlending, depthWrite: false });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 18, 0.52), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial, pipRimMaterial);
@@ -129,13 +109,6 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 4, 4, pipMaterial, pipRimMaterial);
     addPips(die, 5, 5, pipMaterial, pipRimMaterial);
     addPips(die, 6, 6, pipMaterial, pipRimMaterial);
-    addTopHighlight(die, 1, highlightCoreMaterial, highlightFeatherMaterial);
-    addTopHighlight(die, 2, highlightCoreMaterial, highlightFeatherMaterial);
-    addTopHighlight(die, 3, highlightCoreMaterial, highlightFeatherMaterial);
-    addTopHighlight(die, 4, highlightCoreMaterial, highlightFeatherMaterial);
-    addTopHighlight(die, 5, highlightCoreMaterial, highlightFeatherMaterial);
-    addTopHighlight(die, 6, highlightCoreMaterial, highlightFeatherMaterial);
-
     const keyLight = new THREE.DirectionalLight(0xf9fbfb, 3.75);
     keyLight.position.set(-0.65, 4.8, 6.5);
     scene.add(keyLight);
@@ -200,8 +173,6 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       ceramic.dispose();
       pipMaterial.dispose();
       pipRimMaterial.dispose();
-      highlightCoreMaterial.dispose();
-      highlightFeatherMaterial.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
