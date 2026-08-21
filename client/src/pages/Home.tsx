@@ -11,8 +11,8 @@ type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 const EXTENDED_CONTROLS_ENABLED = false;
 const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
-const ROLL_DURATION = 1600;
-const ROLL_MOTION_DURATION = 1420;
+const ROLL_DURATION = 1800;
+const ROLL_MOTION_DURATION = 1620;
 
 const faceAngles: Record<DiceValue, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
