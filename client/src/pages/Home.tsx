@@ -34,10 +34,11 @@ function createDiceStates(count: number): DiceState[] {
 }
 
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material, rimMaterial: THREE.Material) {
-  const discGeometry = new THREE.CircleGeometry(0.145, 48);
-  const rimGeometry = new THREE.RingGeometry(0.145, 0.165, 48);
+  const discGeometry = new THREE.CircleGeometry(0.16, 56);
+  const rimGeometry = new THREE.RingGeometry(0.16, 0.18, 56);
   const depth = 1.405;
   const spacing = 0.57;
+  const marks: THREE.Group[] = [];
 
   pipPoints[value].forEach(([u, v]) => {
     const pipGroup = new THREE.Group();
@@ -52,7 +53,9 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
     if (face === 3) { pipGroup.position.set(u * spacing, depth, -v * spacing); pipGroup.rotation.x = -Math.PI / 2; }
     if (face === 4) { pipGroup.position.set(u * spacing, -depth, v * spacing); pipGroup.rotation.x = Math.PI / 2; }
     group.add(pipGroup);
+    marks.push(pipGroup);
   });
+  return marks;
 }
 
 function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
@@ -103,12 +106,14 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     const pipRimMaterial = new THREE.MeshBasicMaterial({ color: 0x87949a, transparent: true, opacity: 0.075, side: THREE.DoubleSide });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 18, 0.52), ceramic);
     die.add(body);
-    addPips(die, 1, 1, pipMaterial, pipRimMaterial);
-    addPips(die, 2, 2, pipMaterial, pipRimMaterial);
-    addPips(die, 3, 3, pipMaterial, pipRimMaterial);
-    addPips(die, 4, 4, pipMaterial, pipRimMaterial);
-    addPips(die, 5, 5, pipMaterial, pipRimMaterial);
-    addPips(die, 6, 6, pipMaterial, pipRimMaterial);
+    const pipMarks = [
+      ...addPips(die, 1, 1, pipMaterial, pipRimMaterial),
+      ...addPips(die, 2, 2, pipMaterial, pipRimMaterial),
+      ...addPips(die, 3, 3, pipMaterial, pipRimMaterial),
+      ...addPips(die, 4, 4, pipMaterial, pipRimMaterial),
+      ...addPips(die, 5, 5, pipMaterial, pipRimMaterial),
+      ...addPips(die, 6, 6, pipMaterial, pipRimMaterial),
+    ];
     const keyLight = new THREE.DirectionalLight(0xf9fbfb, 3.75);
     keyLight.position.set(-0.65, 4.8, 6.5);
     scene.add(keyLight);
@@ -130,6 +135,8 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       const height = Math.max(1, bounds.height || width);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(width, height, false);
+      const pipScale = THREE.MathUtils.clamp(width / 320, 1.06, 1.2);
+      pipMarks.forEach((pip) => pip.scale.setScalar(pipScale));
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
     };
@@ -314,7 +321,7 @@ export default function Home() {
           </button>
         ))}
       </div>
-      {landingValue !== null && <output className="landing-result" aria-label={`结果：${landingValue} 点`}>{"●".repeat(landingValue)}</output>}
+      {landingValue !== null && <output className="landing-result" aria-label={`结果：${landingValue} 点`}>{landingValue}</output>}
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${diceStates.map((dice) => dice.value).join("、")} 点`}</span>
     </main>
   );
