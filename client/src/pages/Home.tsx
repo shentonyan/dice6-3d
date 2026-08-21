@@ -32,24 +32,55 @@ function playDiceSound() {
   if (!AudioConstructor) return;
   const context = new AudioConstructor();
   const now = context.currentTime;
+  const master = context.createGain();
+  const compressor = context.createDynamicsCompressor();
+  master.gain.value = 0.72;
+  compressor.threshold.value = -22;
+  compressor.knee.value = 14;
+  compressor.ratio.value = 5;
+  master.connect(compressor).connect(context.destination);
+
+  const noiseBuffer = context.createBuffer(1, Math.ceil(context.sampleRate * 0.12), context.sampleRate);
+  const noise = noiseBuffer.getChannelData(0);
+  for (let index = 0; index < noise.length; index += 1) noise[index] = Math.random() * 2 - 1;
+
+  const impact = (time: number, brightness: number, strength: number, duration: number, final = false) => {
+    const noiseSource = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const noiseGain = context.createGain();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(brightness * (0.92 + Math.random() * 0.16), now + time);
+    filter.Q.value = final ? 1.2 : 1.7;
+    noiseGain.gain.setValueAtTime(0.0001, now + time);
+    noiseGain.gain.exponentialRampToValueAtTime(strength, now + time + 0.002);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + time + duration);
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.connect(filter).connect(noiseGain).connect(master);
+    noiseSource.start(now + time);
+    noiseSource.stop(now + time + duration + 0.015);
+
+    const body = context.createOscillator();
+    const bodyGain = context.createGain();
+    body.type = "sine";
+    body.frequency.setValueAtTime(final ? 260 : 410 + Math.random() * 90, now + time);
+    body.frequency.exponentialRampToValueAtTime(final ? 145 : 240, now + time + duration);
+    bodyGain.gain.setValueAtTime(0.0001, now + time);
+    bodyGain.gain.exponentialRampToValueAtTime(final ? 0.032 : 0.014, now + time + 0.004);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + time + duration * 1.35);
+    body.connect(bodyGain).connect(master);
+    body.start(now + time);
+    body.stop(now + time + duration * 1.45);
+  };
+
   [
-    { time: 0, frequency: 1180, duration: 0.025, gain: 0.035 },
-    { time: 0.12, frequency: 920, duration: 0.03, gain: 0.028 },
-    { time: 0.26, frequency: 680, duration: 0.06, gain: 0.045 },
-  ].forEach(({ time, frequency, duration, gain }) => {
-    const oscillator = context.createOscillator();
-    const envelope = context.createGain();
-    oscillator.type = "triangle";
-    oscillator.frequency.setValueAtTime(frequency, now + time);
-    oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.58, now + time + duration);
-    envelope.gain.setValueAtTime(0.0001, now + time);
-    envelope.gain.exponentialRampToValueAtTime(gain, now + time + 0.005);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, now + time + duration);
-    oscillator.connect(envelope).connect(context.destination);
-    oscillator.start(now + time);
-    oscillator.stop(now + time + duration + 0.01);
-  });
-  window.setTimeout(() => void context.close(), 420);
+    { time: 0.04, brightness: 1950, strength: 0.024, duration: 0.04 },
+    { time: 0.15, brightness: 1660, strength: 0.019, duration: 0.045 },
+    { time: 0.29, brightness: 1810, strength: 0.023, duration: 0.043 },
+    { time: 0.46, brightness: 1420, strength: 0.018, duration: 0.05 },
+    { time: 0.65, brightness: 1180, strength: 0.016, duration: 0.058 },
+  ].forEach(({ time, brightness, strength, duration }) => impact(time, brightness, strength, duration));
+  impact(0.84, 920, 0.048, 0.085, true);
+  window.setTimeout(() => void context.close(), 1150);
 }
 
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material) {
