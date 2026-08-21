@@ -182,6 +182,7 @@ export default function Home() {
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("dice6-sound") !== "off");
   const [hapticsEnabled, setHapticsEnabled] = useState(() => localStorage.getItem("dice6-haptics") !== "off");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showGestureHint, setShowGestureHint] = useState(() => localStorage.getItem("dice6-gesture-hint") !== "seen");
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
 
@@ -199,6 +200,17 @@ export default function Home() {
   }, []);
 
   useEffect(() => () => clearLongPress(), [clearLongPress]);
+
+  const acknowledgeGestureHint = useCallback(() => {
+    localStorage.setItem("dice6-gesture-hint", "seen");
+    setShowGestureHint(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showGestureHint) return;
+    const timer = window.setTimeout(acknowledgeGestureHint, 3600);
+    return () => window.clearTimeout(timer);
+  }, [acknowledgeGestureHint, showGestureHint]);
 
   const roll = useCallback(() => {
     if (rolling) return;
@@ -223,10 +235,16 @@ export default function Home() {
         event.preventDefault();
         roll();
       }
+      if ((event.key === "s" || event.key === "S") && !rolling) {
+        event.preventDefault();
+        acknowledgeGestureHint();
+        setSettingsOpen(true);
+      }
+      if (event.key === "Escape") setSettingsOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [roll]);
+  }, [acknowledgeGestureHint, roll, rolling]);
 
   const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷骰子，当前为 ${value} 点`), [rolling, value]);
 
@@ -235,6 +253,7 @@ export default function Home() {
     longPressTriggered.current = false;
     longPressTimer.current = window.setTimeout(() => {
       longPressTriggered.current = true;
+      acknowledgeGestureHint();
       setSettingsOpen(true);
       if (hapticsEnabled) navigator.vibrate?.(8);
     }, 650);
@@ -250,9 +269,11 @@ export default function Home() {
 
   return (
     <main className="black-void">
-      <button className="die-button" type="button" onClick={handleDiceClick} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerLeave={clearLongPress} onPointerCancel={clearLongPress} onContextMenu={(event) => event.preventDefault()} disabled={rolling} aria-label={currentLabel}>
+      <button className="die-button" type="button" onClick={handleDiceClick} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerLeave={clearLongPress} onPointerCancel={clearLongPress} onContextMenu={(event) => event.preventDefault()} disabled={rolling} aria-label={currentLabel} aria-describedby="gesture-hint">
         <DiceRender angles={angles} rolling={rolling} />
       </button>
+      <span id="gesture-hint" className="sr-only">轻触投掷骰子。长按骰子可打开反馈设置；使用键盘时按 S 打开设置。</span>
+      {showGestureHint && <span className="gesture-hint" aria-hidden="true">长按骰子 · 反馈设置</span>}
       {settingsOpen && (
         <div className="settings-layer" role="presentation">
           <button className="settings-scrim" type="button" onClick={() => setSettingsOpen(false)} aria-label="关闭反馈设置" />
