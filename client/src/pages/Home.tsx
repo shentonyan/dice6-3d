@@ -198,9 +198,7 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
   const [showIntroPulse, setShowIntroPulse] = useState(() => localStorage.getItem("dice6-intro-pulse") !== "seen");
-  const [landingValue, setLandingValue] = useState<DiceValue | null>(null);
   const fullscreenHideTimer = useRef<number | null>(null);
-  const landingResultTimer = useRef<number | null>(null);
 
   const triggerLandingHaptic = useCallback(() => {
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
@@ -240,7 +238,6 @@ export default function Home() {
 
   useEffect(() => () => {
     if (fullscreenHideTimer.current !== null) window.clearTimeout(fullscreenHideTimer.current);
-    if (landingResultTimer.current !== null) window.clearTimeout(landingResultTimer.current);
   }, []);
 
   useEffect(() => {
@@ -261,8 +258,6 @@ export default function Home() {
 
   const roll = useCallback(() => {
     if (rolling) return;
-    if (landingResultTimer.current !== null) window.clearTimeout(landingResultTimer.current);
-    setLandingValue(null);
     const nextStates = diceStates.map((dice, index) => {
       const next = (Math.floor(Math.random() * 6) + 1) as DiceValue;
       const target = faceAngles[next];
@@ -275,8 +270,6 @@ export default function Home() {
     window.setTimeout(() => {
       triggerLandingHaptic();
       setRolling(false);
-      setLandingValue(nextStates[0]?.value ?? null);
-      landingResultTimer.current = window.setTimeout(() => setLandingValue(null), 1100);
     }, 920);
   }, [diceStates, rolling, triggerLandingHaptic]);
 
@@ -321,7 +314,6 @@ export default function Home() {
           </button>
         ))}
       </div>
-      {landingValue !== null && <output className="landing-result" aria-label={`结果：${landingValue} 点`}>{landingValue}</output>}
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${diceStates.map((dice) => dice.value).join("、")} 点`}</span>
     </main>
   );
