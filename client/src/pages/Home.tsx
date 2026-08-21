@@ -99,11 +99,11 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     scene.add(die);
 
     const ceramic = new THREE.MeshPhysicalMaterial({
-      color: 0xf8fafb,
-      roughness: 0.38,
+      color: 0xfbfcfd,
+      roughness: 0.42,
       metalness: 0,
-      clearcoat: 0.16,
-      clearcoatRoughness: 0.42,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.3,
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x090a0b, roughness: 0.32, metalness: 0 });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 16, 0.52), ceramic);
@@ -115,16 +115,20 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 5, 5, pipMaterial);
     addPips(die, 6, 6, pipMaterial);
 
-    const keyLight = new THREE.DirectionalLight(0xfffef9, 5.2);
-    keyLight.position.set(-3.8, 4.6, 6);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 4.25);
+    keyLight.position.set(-0.65, 4.8, 6.5);
     scene.add(keyLight);
-    const coolFill = new THREE.DirectionalLight(0xddecf5, 1.15);
-    coolFill.position.set(4.4, 0.8, 3.5);
+    const coolFill = new THREE.DirectionalLight(0xf3fbff, 1.45);
+    coolFill.position.set(-4.2, 1.8, 4.3);
     scene.add(coolFill);
-    const rimLight = new THREE.DirectionalLight(0xd7ebf5, 1.8);
-    rimLight.position.set(1.4, 3.8, -4.5);
+    const rimLight = new THREE.DirectionalLight(0xcfe7f4, 1.1);
+    rimLight.position.set(3.8, 3.6, -3.8);
     scene.add(rimLight);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x35414a, 1.35));
+    const topGlow = new THREE.SpotLight(0xffffff, 2.1, 13, 0.62, 0.9, 1.8);
+    topGlow.position.set(0, 5.2, 5.2);
+    topGlow.target.position.set(0, 0.55, 0);
+    scene.add(topGlow, topGlow.target);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xf9fcfd, 1.8));
 
     const resize = () => {
       const bounds = host.getBoundingClientRect();
