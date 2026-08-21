@@ -11,8 +11,9 @@ type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 const EXTENDED_CONTROLS_ENABLED = false;
 const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
-const ROLL_DURATION = 1720;
-const ROLL_MOTION_DURATION = 1510;
+const ROLL_DURATION = 3000;
+const ROLL_MOTION_DURATION = 2740;
+const HISTORY_REVEAL_DELAY = 1250;
 const MAX_HISTORY_ENTRIES = 512;
 
 function loadRollHistory(): DiceValue[] {
@@ -346,8 +347,10 @@ export default function Home() {
     setDiceStates(nextStates);
     playDiceSound();
     window.setTimeout(() => {
-      triggerLandingHaptic();
       setRollHistory((history) => [...history, ...nextStates.map((dice) => dice.value)].slice(-MAX_HISTORY_ENTRIES));
+    }, HISTORY_REVEAL_DELAY);
+    window.setTimeout(() => {
+      triggerLandingHaptic();
       setRolling(false);
     }, ROLL_DURATION);
   }, [diceStates, playDiceSound, rolling, triggerLandingHaptic]);
