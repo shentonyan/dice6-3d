@@ -182,7 +182,7 @@ export default function Home() {
 
   return (
     <main className="black-void">
-      <button className="die-button" type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
+      <button className={`die-button ${rolling ? "is-rolling" : ""}`} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
         <DiceRender angles={angles} />
       </button>
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${value} 点`}</span>

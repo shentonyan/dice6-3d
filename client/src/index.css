@@ -20,9 +20,11 @@ button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 
 .die-button { position: relative; display: grid; width: min(91vw, 33rem); aspect-ratio: 1; padding: 0; border: 0; background: transparent; place-items: center; touch-action: manipulation; transition: transform 140ms cubic-bezier(.23,1,.32,1); }
 .die-button:not(:disabled):active { transform: scale(.975); }
 .die-button:disabled { cursor: wait; }
-.die-render { display: block; width: min(76vw, 28rem); aspect-ratio: 1; }
+.die-render { display: block; width: min(76vw, 28rem); aspect-ratio: 1; animation: dice-breathe 4.8s cubic-bezier(.42,0,.58,1) infinite; will-change: transform, filter; }
 .die-render canvas { display: block; width: 100%; height: 100%; }
+.die-button.is-rolling .die-render { animation-play-state: paused; filter: none; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@keyframes dice-breathe { 0%, 100% { filter: drop-shadow(0 0 0 rgba(205,237,251,0)); transform: translateY(0); } 50% { filter: drop-shadow(0 0 8px rgba(205,237,251,.12)); transform: translateY(-3px); } }
 @media (min-width: 700px) { .black-void { max-width: 580px; margin: 0 auto; }.die-render { width: 28rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
