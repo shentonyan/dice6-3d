@@ -8,6 +8,7 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { Maximize2, Minimize2 } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
+type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 
 const faceAngles: Record<DiceValue, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
@@ -26,6 +27,10 @@ const pipPoints: Record<DiceValue, [number, number][]> = {
   5: [[-1, 1], [1, 1], [0, 0], [-1, -1], [1, -1]],
   6: [[-1, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [1, -1]],
 };
+
+function createDiceStates(count: number): DiceState[] {
+  return Array.from({ length: count }, () => ({ value: 1, angles: { x: 0, y: 0 } }));
+}
 
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material, rimMaterial: THREE.Material) {
   const discGeometry = new THREE.CircleGeometry(0.145, 48);
@@ -47,6 +52,19 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
     if (face === 4) { pipGroup.position.set(u * spacing, -depth, v * spacing); pipGroup.rotation.x = Math.PI / 2; }
     group.add(pipGroup);
   });
+}
+
+function addTopHighlight(group: THREE.Group, face: DiceValue, material: THREE.Material) {
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(1.78, 0.022), material);
+  const depth = 1.407;
+  const inset = 1.09;
+  if (face === 1) strip.position.set(0, inset, depth);
+  if (face === 6) { strip.position.set(0, inset, -depth); strip.rotation.y = Math.PI; }
+  if (face === 2) { strip.position.set(depth, inset, 0); strip.rotation.y = Math.PI / 2; }
+  if (face === 5) { strip.position.set(-depth, inset, 0); strip.rotation.y = -Math.PI / 2; }
+  if (face === 3) { strip.position.set(0, depth, -inset); strip.rotation.x = -Math.PI / 2; }
+  if (face === 4) { strip.position.set(0, -depth, inset); strip.rotation.x = Math.PI / 2; }
+  group.add(strip);
 }
 
 function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
@@ -95,6 +113,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x111416, roughness: 0.48, metalness: 0 });
     const pipRimMaterial = new THREE.MeshBasicMaterial({ color: 0x87949a, transparent: true, opacity: 0.075, side: THREE.DoubleSide });
+    const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.11, blending: THREE.AdditiveBlending, depthWrite: false });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 18, 0.52), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial, pipRimMaterial);
@@ -103,6 +122,12 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 4, 4, pipMaterial, pipRimMaterial);
     addPips(die, 5, 5, pipMaterial, pipRimMaterial);
     addPips(die, 6, 6, pipMaterial, pipRimMaterial);
+    addTopHighlight(die, 1, highlightMaterial);
+    addTopHighlight(die, 2, highlightMaterial);
+    addTopHighlight(die, 3, highlightMaterial);
+    addTopHighlight(die, 4, highlightMaterial);
+    addTopHighlight(die, 5, highlightMaterial);
+    addTopHighlight(die, 6, highlightMaterial);
 
     const keyLight = new THREE.DirectionalLight(0xf9fbfb, 3.75);
     keyLight.position.set(-0.65, 4.8, 6.5);
@@ -144,16 +169,18 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       lastRenderTime = now;
       const target = targetRef.current;
       const elapsed = now - rollStartedAt.current;
-      const isRolling = rolling && elapsed < 920;
-      const progress = isRolling ? Math.min(elapsed / 920, 1) : 1;
+      const isRolling = rolling && elapsed < 800;
+      const isSettling = rolling && elapsed >= 800 && elapsed < 920;
+      const progress = isRolling ? Math.min(elapsed / 800, 1) : 1;
       const pauseFactor = isRolling && progress > 0.44 && progress < 0.56 ? 0.16 : 1;
       const drift = driftRef.current;
       const sway = isRolling ? Math.sin(progress * Math.PI) * (1 - progress * 0.25) : 0;
-      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, 11 * pauseFactor, delta);
-      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, 11 * pauseFactor, delta);
-      die.position.x = THREE.MathUtils.damp(die.position.x, drift.x * sway, isRolling ? 16 : 12, delta);
-      die.position.y = THREE.MathUtils.damp(die.position.y, drift.y * sway, isRolling ? 16 : 12, delta);
-      die.rotation.z = THREE.MathUtils.damp(die.rotation.z, isRolling ? Math.sin((progress + drift.phase) * Math.PI * 2) * 0.035 * (1 - progress) : 0, 10, delta);
+      const settleDamping = isSettling ? 30 : 12;
+      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, isRolling ? 11 * pauseFactor : settleDamping, delta);
+      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, isRolling ? 11 * pauseFactor : settleDamping, delta);
+      die.position.x = THREE.MathUtils.damp(die.position.x, drift.x * sway, isRolling ? 16 : settleDamping, delta);
+      die.position.y = THREE.MathUtils.damp(die.position.y, drift.y * sway, isRolling ? 16 : settleDamping, delta);
+      die.rotation.z = THREE.MathUtils.damp(die.rotation.z, isRolling ? Math.sin((progress + drift.phase) * Math.PI * 2) * 0.035 * (1 - progress) : 0, isSettling ? 32 : 10, delta);
       die.scale.setScalar(1);
       renderer.render(scene, camera);
     };
@@ -166,6 +193,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       ceramic.dispose();
       pipMaterial.dispose();
       pipRimMaterial.dispose();
+      highlightMaterial.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -176,11 +204,12 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
 
 export default function Home() {
   const rootRef = useRef<HTMLElement>(null);
-  const [value, setValue] = useState<DiceValue>(1);
+  const [diceCount, setDiceCount] = useState(1);
+  const [diceStates, setDiceStates] = useState<DiceState[]>(() => createDiceStates(1));
   const [rolling, setRolling] = useState(false);
-  const [angles, setAngles] = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
+  const [showIntroPulse, setShowIntroPulse] = useState(() => localStorage.getItem("dice6-intro-pulse") !== "seen");
   const fullscreenHideTimer = useRef<number | null>(null);
 
   const triggerLandingHaptic = useCallback(() => {
@@ -223,20 +252,37 @@ export default function Home() {
     if (fullscreenHideTimer.current !== null) window.clearTimeout(fullscreenHideTimer.current);
   }, []);
 
+  useEffect(() => {
+    if (!showIntroPulse) return;
+    const timer = window.setTimeout(() => {
+      localStorage.setItem("dice6-intro-pulse", "seen");
+      setShowIntroPulse(false);
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [showIntroPulse]);
+
+  const selectDiceCount = (count: number) => {
+    if (rolling) return;
+    setDiceCount(count);
+    setDiceStates(createDiceStates(count));
+    revealFullscreenControl();
+  };
+
   const roll = useCallback(() => {
     if (rolling) return;
-    const next = (Math.floor(Math.random() * 6) + 1) as DiceValue;
-    const target = faceAngles[next];
-    const baseX = Math.ceil((angles.x - target.x) / 360) * 360;
-    const baseY = Math.ceil((angles.y - target.y) / 360) * 360;
     setRolling(true);
-    setValue(next);
-    setAngles({ x: target.x + baseX + 720, y: target.y + baseY + 1080 });
+    setDiceStates((current) => current.map((dice, index) => {
+      const next = (Math.floor(Math.random() * 6) + 1) as DiceValue;
+      const target = faceAngles[next];
+      const baseX = Math.ceil((dice.angles.x - target.x) / 360) * 360;
+      const baseY = Math.ceil((dice.angles.y - target.y) / 360) * 360;
+      return { value: next, angles: { x: target.x + baseX + 720 + index * 34, y: target.y + baseY + 1080 + index * 48 } };
+    }));
     window.setTimeout(() => {
       triggerLandingHaptic();
       setRolling(false);
-    }, 1040);
-  }, [angles, rolling, triggerLandingHaptic]);
+    }, 920);
+  }, [rolling, triggerLandingHaptic]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -253,7 +299,7 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [roll, toggleFullscreen]);
 
-  const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷骰子，当前为 ${value} 点`), [rolling, value]);
+  const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷 ${diceCount} 枚骰子，当前为 ${diceStates.map((dice) => dice.value).join("、")} 点`), [diceCount, diceStates, rolling]);
 
   const revealControlFromEdge = (event: React.PointerEvent<HTMLElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -262,14 +308,21 @@ export default function Home() {
   };
 
   return (
-    <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""}`} onPointerMove={revealControlFromEdge} onPointerDown={revealControlFromEdge}>
+    <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""} ${showIntroPulse ? "intro-pulse" : ""}`} onPointerMove={revealControlFromEdge} onPointerDown={revealControlFromEdge}>
+      <div className={`dice-mode-picker ${fullscreenControlVisible ? "is-visible" : ""}`} role="group" aria-label="骰子数量">
+        {[1, 2, 3, 4].map((count) => <button key={count} type="button" onClick={() => selectDiceCount(count)} aria-pressed={diceCount === count} tabIndex={fullscreenControlVisible ? 0 : -1}>{count}</button>)}
+      </div>
       <button className={`fullscreen-button ${fullscreenControlVisible ? "is-visible" : ""}`} type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"} tabIndex={fullscreenControlVisible ? 0 : -1}>
         {isFullscreen ? <Minimize2 size={17} strokeWidth={1.5} /> : <Maximize2 size={17} strokeWidth={1.5} />}
       </button>
-      <button className={`die-button ${rolling ? "is-rolling" : ""}`} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
-        <DiceRender angles={angles} rolling={rolling} />
-      </button>
-      <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${value} 点`}</span>
+      <div className={`dice-cluster count-${diceCount}`} aria-label={currentLabel}>
+        {diceStates.map((dice, index) => (
+          <button className={`die-button ${rolling ? "is-rolling" : ""}`} key={index} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
+            <DiceRender angles={dice.angles} rolling={rolling} />
+          </button>
+        ))}
+      </div>
+      <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${diceStates.map((dice) => dice.value).join("、")} 点`}</span>
     </main>
   );
 }
