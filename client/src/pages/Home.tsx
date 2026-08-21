@@ -11,8 +11,8 @@ type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 const EXTENDED_CONTROLS_ENABLED = false;
 const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
-const ROLL_DURATION = 1800;
-const ROLL_MOTION_DURATION = 1620;
+const ROLL_DURATION = 2480;
+const ROLL_MOTION_DURATION = 2240;
 
 const faceAngles: Record<DiceValue, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
@@ -168,8 +168,8 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       const settleProgress = isSettling ? (elapsed - ROLL_MOTION_DURATION) / (ROLL_DURATION - ROLL_MOTION_DURATION) : 0;
       const landingCompression = isSettling ? Math.sin(settleProgress * Math.PI) : 0;
       const settleDamping = isSettling ? 30 : 12;
-      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, isRolling ? 11 * pauseFactor : settleDamping, delta);
-      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, isRolling ? 11 * pauseFactor : settleDamping, delta);
+      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, isRolling ? 3.6 * pauseFactor : settleDamping, delta);
+      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, isRolling ? 3.6 * pauseFactor : settleDamping, delta);
       die.position.x = THREE.MathUtils.damp(die.position.x, drift.x * sway, isRolling ? 16 : settleDamping, delta);
       die.position.y = THREE.MathUtils.damp(die.position.y, drift.y * sway - landingCompression * 0.018, isRolling ? 16 : settleDamping, delta);
       die.rotation.z = THREE.MathUtils.damp(die.rotation.z, isRolling ? Math.sin((progress + drift.phase) * Math.PI * 2) * 0.035 * (1 - progress) : 0, isSettling ? 32 : 10, delta);
