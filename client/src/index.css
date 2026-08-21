@@ -21,7 +21,7 @@ button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 
 .die-button { position: relative; display: grid; width: min(92vw, calc(var(--die-canvas) + 7rem)); aspect-ratio: 1; padding: 0; border: 0; background: transparent; place-items: center; touch-action: manipulation; transition: transform 140ms cubic-bezier(.23,1,.32,1); }
 .die-button:not(:disabled):active { transform: scale(.975); }
 .die-button:disabled { cursor: wait; }
-.fullscreen-button { position: absolute; z-index: 3; top: max(1rem, env(safe-area-inset-top)); right: 1rem; display: grid; width: 2.35rem; height: 2.35rem; padding: 0; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; background: rgba(0,0,0,.12); color: rgba(255,255,255,.52); opacity: .6; place-items: center; transition: opacity 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out, transform 140ms cubic-bezier(.23,1,.32,1); }.fullscreen-button:active { transform: scale(.92); }.fullscreen-button:hover { border-color: rgba(255,255,255,.48); color: rgba(255,255,255,.92); opacity: 1; }
+.fullscreen-button { position: absolute; z-index: 3; top: max(1rem, env(safe-area-inset-top)); right: 1rem; display: grid; width: 2.35rem; height: 2.35rem; padding: 0; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; background: rgba(0,0,0,.12); color: rgba(255,255,255,.52); opacity: 0; pointer-events: none; place-items: center; transition: opacity 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out, transform 140ms cubic-bezier(.23,1,.32,1); }.fullscreen-button.is-visible { opacity: .72; pointer-events: auto; }.fullscreen-button:active { transform: scale(.92); }.fullscreen-button:hover { border-color: rgba(255,255,255,.48); color: rgba(255,255,255,.92); opacity: 1; }
 .die-render { display: block; width: var(--die-canvas); aspect-ratio: 1; animation: dice-breathe 3.4s cubic-bezier(.42,0,.58,1) infinite; will-change: transform, filter; }
 .die-render canvas { display: block; width: 100%; height: 100%; }
 .die-button.is-rolling .die-render { animation-play-state: paused; filter: none; }
@@ -30,5 +30,5 @@ button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 
 @keyframes dice-breathe { 0%, 100% { filter: drop-shadow(0 0 3px rgba(205,237,251,.04)); transform: translateY(0); } 50% { filter: drop-shadow(0 0 17px rgba(205,237,251,.25)); transform: translateY(-7px); } }
 @media (min-width: 700px) and (max-width: 1023px) { .black-void { --die-canvas: min(48vw, 34rem, 72svh); }.die-button { width: min(66vw, calc(var(--die-canvas) + 9rem)); } }
 @media (min-width: 1024px) { .black-void { --die-canvas: min(35vw, 38rem, 72svh); }.die-button { width: min(50vw, calc(var(--die-canvas) + 10rem)); } }
-@media (hover: hover) { .fullscreen-button { opacity: .28; }.black-void:hover .fullscreen-button, .fullscreen-button:focus-visible { opacity: .8; } }
+@media (hover: hover) { .fullscreen-button.is-visible:hover, .fullscreen-button.is-visible:focus-visible { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

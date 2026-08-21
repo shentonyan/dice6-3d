@@ -1,6 +1,6 @@
 /**
  * Dice6 / Black Void — pure roll edition.
- * A single softly lit ceramic die remains the entire interface: tap to roll, with no persistent settings or feedback chrome.
+ * A single softly lit ceramic die remains the entire interface: tap to roll, with only an edge-revealed fullscreen control.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -27,20 +27,25 @@ const pipPoints: Record<DiceValue, [number, number][]> = {
   6: [[-1, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [1, -1]],
 };
 
-function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material) {
+function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material, rimMaterial: THREE.Material) {
   const discGeometry = new THREE.CircleGeometry(0.145, 48);
-  const depth = 1.408;
+  const rimGeometry = new THREE.RingGeometry(0.145, 0.173, 48);
+  const depth = 1.405;
   const spacing = 0.57;
 
   pipPoints[value].forEach(([u, v]) => {
+    const pipGroup = new THREE.Group();
     const pip = new THREE.Mesh(discGeometry, material);
-    if (face === 1) pip.position.set(u * spacing, v * spacing, depth);
-    if (face === 6) { pip.position.set(-u * spacing, v * spacing, -depth); pip.rotation.y = Math.PI; }
-    if (face === 2) { pip.position.set(depth, v * spacing, -u * spacing); pip.rotation.y = Math.PI / 2; }
-    if (face === 5) { pip.position.set(-depth, v * spacing, u * spacing); pip.rotation.y = -Math.PI / 2; }
-    if (face === 3) { pip.position.set(u * spacing, depth, -v * spacing); pip.rotation.x = -Math.PI / 2; }
-    if (face === 4) { pip.position.set(u * spacing, -depth, v * spacing); pip.rotation.x = Math.PI / 2; }
-    group.add(pip);
+    const rim = new THREE.Mesh(rimGeometry, rimMaterial);
+    rim.position.z = -0.002;
+    pipGroup.add(rim, pip);
+    if (face === 1) pipGroup.position.set(u * spacing, v * spacing, depth);
+    if (face === 6) { pipGroup.position.set(-u * spacing, v * spacing, -depth); pipGroup.rotation.y = Math.PI; }
+    if (face === 2) { pipGroup.position.set(depth, v * spacing, -u * spacing); pipGroup.rotation.y = Math.PI / 2; }
+    if (face === 5) { pipGroup.position.set(-depth, v * spacing, u * spacing); pipGroup.rotation.y = -Math.PI / 2; }
+    if (face === 3) { pipGroup.position.set(u * spacing, depth, -v * spacing); pipGroup.rotation.x = -Math.PI / 2; }
+    if (face === 4) { pipGroup.position.set(u * spacing, -depth, v * spacing); pipGroup.rotation.x = Math.PI / 2; }
+    group.add(pipGroup);
   });
 }
 
@@ -82,36 +87,37 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     scene.add(die);
 
     const ceramic = new THREE.MeshPhysicalMaterial({
-      color: 0xfbfcfd,
-      roughness: 0.42,
+      color: 0xf2f5f6,
+      roughness: 0.46,
       metalness: 0,
-      clearcoat: 0.1,
-      clearcoatRoughness: 0.3,
+      clearcoat: 0.07,
+      clearcoatRoughness: 0.36,
     });
-    const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x090a0b, roughness: 0.32, metalness: 0 });
+    const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x111416, roughness: 0.48, metalness: 0 });
+    const pipRimMaterial = new THREE.MeshBasicMaterial({ color: 0x6f797e, transparent: true, opacity: 0.16, side: THREE.DoubleSide });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 18, 0.52), ceramic);
     die.add(body);
-    addPips(die, 1, 1, pipMaterial);
-    addPips(die, 2, 2, pipMaterial);
-    addPips(die, 3, 3, pipMaterial);
-    addPips(die, 4, 4, pipMaterial);
-    addPips(die, 5, 5, pipMaterial);
-    addPips(die, 6, 6, pipMaterial);
+    addPips(die, 1, 1, pipMaterial, pipRimMaterial);
+    addPips(die, 2, 2, pipMaterial, pipRimMaterial);
+    addPips(die, 3, 3, pipMaterial, pipRimMaterial);
+    addPips(die, 4, 4, pipMaterial, pipRimMaterial);
+    addPips(die, 5, 5, pipMaterial, pipRimMaterial);
+    addPips(die, 6, 6, pipMaterial, pipRimMaterial);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 4.25);
+    const keyLight = new THREE.DirectionalLight(0xf9fbfb, 3.75);
     keyLight.position.set(-0.65, 4.8, 6.5);
     scene.add(keyLight);
-    const coolFill = new THREE.DirectionalLight(0xf3fbff, 1.45);
+    const coolFill = new THREE.DirectionalLight(0xf0f6f8, 1.08);
     coolFill.position.set(-4.2, 1.8, 4.3);
     scene.add(coolFill);
-    const rimLight = new THREE.DirectionalLight(0xcfe7f4, 1.1);
+    const rimLight = new THREE.DirectionalLight(0xd8e5e9, 0.68);
     rimLight.position.set(3.8, 3.6, -3.8);
     scene.add(rimLight);
-    const topGlow = new THREE.SpotLight(0xffffff, 2.1, 13, 0.62, 0.9, 1.8);
+    const topGlow = new THREE.SpotLight(0xffffff, 1.5, 13, 0.62, 0.9, 1.8);
     topGlow.position.set(0, 5.2, 5.2);
     topGlow.target.position.set(0, 0.55, 0);
     scene.add(topGlow, topGlow.target);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xf9fcfd, 1.8));
+    scene.add(new THREE.HemisphereLight(0xf8fafb, 0xe9eff1, 1.55));
 
     const resize = () => {
       const bounds = host.getBoundingClientRect();
@@ -159,6 +165,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       body.geometry.dispose();
       ceramic.dispose();
       pipMaterial.dispose();
+      pipRimMaterial.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -173,6 +180,8 @@ export default function Home() {
   const [rolling, setRolling] = useState(false);
   const [angles, setAngles] = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
+  const fullscreenHideTimer = useRef<number | null>(null);
 
   const toggleFullscreen = useCallback(async () => {
     const root = rootRef.current;
@@ -186,9 +195,23 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const updateFullscreenState = () => setIsFullscreen(document.fullscreenElement === rootRef.current);
+    const updateFullscreenState = () => {
+      const active = document.fullscreenElement === rootRef.current;
+      setIsFullscreen(active);
+      setFullscreenControlVisible(false);
+    };
     document.addEventListener("fullscreenchange", updateFullscreenState);
     return () => document.removeEventListener("fullscreenchange", updateFullscreenState);
+  }, []);
+
+  const revealFullscreenControl = useCallback(() => {
+    setFullscreenControlVisible(true);
+    if (fullscreenHideTimer.current !== null) window.clearTimeout(fullscreenHideTimer.current);
+    fullscreenHideTimer.current = window.setTimeout(() => setFullscreenControlVisible(false), 1500);
+  }, []);
+
+  useEffect(() => () => {
+    if (fullscreenHideTimer.current !== null) window.clearTimeout(fullscreenHideTimer.current);
   }, []);
 
   const roll = useCallback(() => {
@@ -202,7 +225,7 @@ export default function Home() {
     setAngles({ x: target.x + baseX + 720, y: target.y + baseY + 1080 });
     window.setTimeout(() => {
       setRolling(false);
-    }, 920);
+    }, 1040);
   }, [angles, rolling]);
 
   useEffect(() => {
@@ -222,9 +245,15 @@ export default function Home() {
 
   const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷骰子，当前为 ${value} 点`), [rolling, value]);
 
+  const revealControlFromEdge = (event: React.PointerEvent<HTMLElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const nearTopOrRightEdge = event.clientX > bounds.right - 56 || event.clientY < bounds.top + 56;
+    if (nearTopOrRightEdge) revealFullscreenControl();
+  };
+
   return (
-    <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""}`}>
-      <button className="fullscreen-button" type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"}>
+    <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""}`} onPointerMove={revealControlFromEdge} onPointerDown={revealControlFromEdge}>
+      <button className={`fullscreen-button ${fullscreenControlVisible ? "is-visible" : ""}`} type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"} tabIndex={fullscreenControlVisible ? 0 : -1}>
         {isFullscreen ? <Minimize2 size={17} strokeWidth={1.5} /> : <Maximize2 size={17} strokeWidth={1.5} />}
       </button>
       <button className={`die-button ${rolling ? "is-rolling" : ""}`} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
