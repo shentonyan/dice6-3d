@@ -1,11 +1,11 @@
 /**
- * Dice6 / Black Void — continuous geometry edition.
- * One Three.js rounded-box mesh replaces stitched CSS faces, so all eight corners remain continuous.
+ * Dice6 / Black Void — hardware-soft edition.
+ * A softly radiused, low-contrast ceramic die is paired with settings revealed only by a deliberate long press.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { Volume2, VolumeX, Vibrate } from "lucide-react";
+import { Volume2, VolumeX, Vibrate, X } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -99,12 +99,12 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     scene.add(die);
 
     const ceramic = new THREE.MeshStandardMaterial({
-      color: 0xf7fcff,
-      roughness: 0.46,
+      color: 0xf8fafb,
+      roughness: 0.52,
       metalness: 0,
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x090a0b, roughness: 0.32, metalness: 0 });
-    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 12, 0.44), ceramic);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 14, 0.52), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial);
     addPips(die, 2, 2, pipMaterial);
@@ -113,13 +113,13 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 5, 5, pipMaterial);
     addPips(die, 6, 6, pipMaterial);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 5.5);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 4.7);
     keyLight.position.set(-3.5, 4.2, 6);
     scene.add(keyLight);
-    const coolFill = new THREE.DirectionalLight(0xd7edff, 1.8);
+    const coolFill = new THREE.DirectionalLight(0xd7edff, 1.35);
     coolFill.position.set(4, 0.4, 3);
     scene.add(coolFill);
-    const rimLight = new THREE.DirectionalLight(0xbfd9e8, 2.2);
+    const rimLight = new THREE.DirectionalLight(0xbfd9e8, 1.55);
     rimLight.position.set(0, 4, -4);
     scene.add(rimLight);
     scene.add(new THREE.AmbientLight(0xffffff, 1.45));
@@ -175,6 +175,9 @@ export default function Home() {
   const [angles, setAngles] = useState({ x: 0, y: 0 });
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("dice6-sound") !== "off");
   const [hapticsEnabled, setHapticsEnabled] = useState(() => localStorage.getItem("dice6-haptics") !== "off");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressTriggered = useRef(false);
 
   useEffect(() => {
     localStorage.setItem("dice6-sound", soundEnabled ? "on" : "off");
@@ -183,6 +186,13 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("dice6-haptics", hapticsEnabled ? "on" : "off");
   }, [hapticsEnabled]);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+  }, []);
+
+  useEffect(() => () => clearLongPress(), [clearLongPress]);
 
   const roll = useCallback(() => {
     if (rolling) return;
@@ -214,19 +224,44 @@ export default function Home() {
 
   const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷骰子，当前为 ${value} 点`), [rolling, value]);
 
+  const startLongPress = () => {
+    if (rolling) return;
+    longPressTriggered.current = false;
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTriggered.current = true;
+      setSettingsOpen(true);
+      if (hapticsEnabled) navigator.vibrate?.(8);
+    }, 650);
+  };
+
+  const handleDiceClick = () => {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
+    roll();
+  };
+
   return (
     <main className="black-void">
-      <div className="feedback-controls" aria-label="投掷反馈设置">
-        <button className={`feedback-button ${soundEnabled ? "is-active" : ""}`} type="button" onClick={() => setSoundEnabled((enabled) => !enabled)} aria-pressed={soundEnabled} aria-label={soundEnabled ? "关闭音效" : "开启音效"}>
-          {soundEnabled ? <Volume2 size={16} strokeWidth={1.6} /> : <VolumeX size={16} strokeWidth={1.6} />}
-        </button>
-        <button className={`feedback-button ${hapticsEnabled ? "is-active" : ""}`} type="button" onClick={() => setHapticsEnabled((enabled) => !enabled)} aria-pressed={hapticsEnabled} aria-label={hapticsEnabled ? "关闭震动" : "开启震动"}>
-          <Vibrate size={16} strokeWidth={1.6} />
-        </button>
-      </div>
-      <button className="die-button" type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
+      <button className="die-button" type="button" onClick={handleDiceClick} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerLeave={clearLongPress} onPointerCancel={clearLongPress} onContextMenu={(event) => event.preventDefault()} disabled={rolling} aria-label={currentLabel}>
         <DiceRender angles={angles} rolling={rolling} />
       </button>
+      {settingsOpen && (
+        <div className="settings-layer" role="presentation">
+          <button className="settings-scrim" type="button" onClick={() => setSettingsOpen(false)} aria-label="关闭反馈设置" />
+          <section className="settings-sheet" role="dialog" aria-modal="true" aria-label="投掷反馈设置">
+            <header><span>FEEDBACK</span><button type="button" onClick={() => setSettingsOpen(false)} aria-label="关闭"><X size={16} strokeWidth={1.7} /></button></header>
+            <button className="setting-row" type="button" onClick={() => setSoundEnabled((enabled) => !enabled)} aria-pressed={soundEnabled}>
+              {soundEnabled ? <Volume2 size={17} strokeWidth={1.6} /> : <VolumeX size={17} strokeWidth={1.6} />}<span>音效</span><i>{soundEnabled ? "开" : "关"}</i>
+            </button>
+            <button className="setting-row" type="button" onClick={() => setHapticsEnabled((enabled) => !enabled)} aria-pressed={hapticsEnabled}>
+              <Vibrate size={17} strokeWidth={1.6} /><span>震动</span><i>{hapticsEnabled ? "开" : "关"}</i>
+            </button>
+            <p>长按骰子以打开此设置</p>
+          </section>
+        </div>
+      )}
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${value} 点`}</span>
     </main>
   );
