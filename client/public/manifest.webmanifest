@@ -1,0 +1,23 @@
+{
+  "name": "Dice6",
+  "short_name": "Dice6",
+  "description": "极简 3D 骰子投掷工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/manus-storage/dice6-ios-icon_1888bb61.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/manus-storage/dice6-ios-icon_1888bb61.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
