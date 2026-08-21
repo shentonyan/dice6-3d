@@ -5,14 +5,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { Maximize2, Minimize2, Volume2, VolumeX } from "lucide-react";
+import { History, Maximize2, Minimize2, Volume2, VolumeX } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 const EXTENDED_CONTROLS_ENABLED = false;
 const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
-const ROLL_DURATION = 2480;
-const ROLL_MOTION_DURATION = 2240;
+const ROLL_DURATION = 1720;
+const ROLL_MOTION_DURATION = 1510;
 const MAX_HISTORY_ENTRIES = 512;
 
 function loadRollHistory(): DiceValue[] {
@@ -214,6 +214,7 @@ export default function Home() {
   const [diceCount, setDiceCount] = useState(1);
   const [diceStates, setDiceStates] = useState<DiceState[]>(() => createDiceStates(1));
   const [rollHistory, setRollHistory] = useState<DiceValue[]>(loadRollHistory);
+  const [historyVisible, setHistoryVisible] = useState(() => localStorage.getItem("dice6-history-visible") !== "false");
   const [rolling, setRolling] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
@@ -321,6 +322,10 @@ export default function Home() {
     return () => window.cancelAnimationFrame(frame);
   }, [rollHistory]);
 
+  useEffect(() => {
+    localStorage.setItem("dice6-history-visible", String(historyVisible));
+  }, [historyVisible]);
+
   const selectDiceCount = (count: number) => {
     if (rolling) return;
     setDiceCount(count);
@@ -377,6 +382,9 @@ export default function Home() {
       <button className={`sound-button ${soundControlVisible ? "is-visible" : ""}`} type="button" onClick={() => { setSoundEnabled((enabled) => !enabled); revealSoundControl(); }} aria-label={soundEnabled ? "关闭骰子音效" : "开启骰子音效"} aria-pressed={soundEnabled} title={soundEnabled ? "关闭音效" : "开启音效"} tabIndex={soundControlVisible ? 0 : -1}>
         {soundEnabled ? <Volume2 size={16} strokeWidth={1.6} /> : <VolumeX size={16} strokeWidth={1.6} />}
       </button>
+      <button className={`history-toggle ${soundControlVisible ? "is-visible" : ""} ${historyVisible ? "" : "is-off"}`} type="button" onClick={() => { setHistoryVisible((visible) => !visible); revealSoundControl(); }} aria-label={historyVisible ? "隐藏投掷历史" : "显示投掷历史"} aria-pressed={historyVisible} title={historyVisible ? "隐藏历史" : "显示历史"} tabIndex={soundControlVisible ? 0 : -1}>
+        <History size={16} strokeWidth={1.6} />
+      </button>
       {EXTENDED_CONTROLS_ENABLED && <>
         <div className={`dice-mode-picker ${fullscreenControlVisible ? "is-visible" : ""}`} role="group" aria-label="骰子数量">
           {[1, 2, 3, 4].map((count) => <button key={count} type="button" onClick={() => selectDiceCount(count)} aria-pressed={diceCount === count} tabIndex={fullscreenControlVisible ? 0 : -1}>{count}</button>)}
@@ -392,7 +400,7 @@ export default function Home() {
           </button>
         ))}
       </div>
-      {rollHistory.length > 0 && <section className="history-panel" aria-label={`投掷历史，共 ${rollHistory.length} 次，最新结果在右侧`}>
+      {historyVisible && rollHistory.length > 0 && <section className="history-panel" aria-label={`投掷历史，共 ${rollHistory.length} 次，最新结果在右侧`}>
         <div ref={historyStripRef} className="history-viewport">
           <div className="history-track">
             {rollHistory.map((value, index) => <span className="history-value" key={`${index}-${value}`} style={{ opacity: 0.12 + 0.88 * ((index + 1) / rollHistory.length) ** 1.7 }}>{value}</span>)}
