@@ -10,7 +10,9 @@ import { Maximize2, Minimize2, Volume2, VolumeX } from "lucide-react";
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 const EXTENDED_CONTROLS_ENABLED = false;
-const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-4_c619d080.mp3";
+const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
+const ROLL_DURATION = 1420;
+const ROLL_MOTION_DURATION = 1240;
 
 const faceAngles: Record<DiceValue, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
@@ -157,13 +159,13 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       lastRenderTime = now;
       const target = targetRef.current;
       const elapsed = now - rollStartedAt.current;
-      const isRolling = rolling && elapsed < 800;
-      const isSettling = rolling && elapsed >= 800 && elapsed < 920;
-      const progress = isRolling ? Math.min(elapsed / 800, 1) : 1;
+      const isRolling = rolling && elapsed < ROLL_MOTION_DURATION;
+      const isSettling = rolling && elapsed >= ROLL_MOTION_DURATION && elapsed < ROLL_DURATION;
+      const progress = isRolling ? Math.min(elapsed / ROLL_MOTION_DURATION, 1) : 1;
       const pauseFactor = isRolling && progress > 0.44 && progress < 0.56 ? 0.16 : 1;
       const drift = driftRef.current;
       const sway = isRolling ? Math.sin(progress * Math.PI) * (1 - progress * 0.25) : 0;
-      const settleProgress = isSettling ? (elapsed - 800) / 120 : 0;
+      const settleProgress = isSettling ? (elapsed - ROLL_MOTION_DURATION) / (ROLL_DURATION - ROLL_MOTION_DURATION) : 0;
       const landingCompression = isSettling ? Math.sin(settleProgress * Math.PI) : 0;
       const settleDamping = isSettling ? 30 : 12;
       die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, isRolling ? 11 * pauseFactor : settleDamping, delta);
@@ -310,7 +312,7 @@ export default function Home() {
     window.setTimeout(() => {
       triggerLandingHaptic();
       setRolling(false);
-    }, 920);
+    }, ROLL_DURATION);
   }, [diceStates, playDiceSound, rolling, triggerLandingHaptic]);
 
   useEffect(() => {
