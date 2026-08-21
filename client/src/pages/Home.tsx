@@ -1,11 +1,10 @@
 /**
- * Dice6 / Black Void — hardware-soft edition.
- * A softly radiused, low-contrast ceramic die is paired with settings revealed only by a deliberate long press.
+ * Dice6 / Black Void — pure roll edition.
+ * A single softly lit ceramic die remains the entire interface: tap to roll, with no persistent settings or feedback chrome.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { Volume2, VolumeX, Vibrate, X } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -27,62 +26,6 @@ const pipPoints: Record<DiceValue, [number, number][]> = {
   6: [[-1, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [1, -1]],
 };
 
-function playDiceSound() {
-  const AudioConstructor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioConstructor) return;
-  const context = new AudioConstructor();
-  const now = context.currentTime;
-  const master = context.createGain();
-  const compressor = context.createDynamicsCompressor();
-  master.gain.value = 0.72;
-  compressor.threshold.value = -22;
-  compressor.knee.value = 14;
-  compressor.ratio.value = 5;
-  master.connect(compressor).connect(context.destination);
-
-  const noiseBuffer = context.createBuffer(1, Math.ceil(context.sampleRate * 0.12), context.sampleRate);
-  const noise = noiseBuffer.getChannelData(0);
-  for (let index = 0; index < noise.length; index += 1) noise[index] = Math.random() * 2 - 1;
-
-  const impact = (time: number, brightness: number, strength: number, duration: number, final = false) => {
-    const noiseSource = context.createBufferSource();
-    const filter = context.createBiquadFilter();
-    const noiseGain = context.createGain();
-    filter.type = "bandpass";
-    filter.frequency.setValueAtTime(brightness * (0.92 + Math.random() * 0.16), now + time);
-    filter.Q.value = final ? 1.2 : 1.7;
-    noiseGain.gain.setValueAtTime(0.0001, now + time);
-    noiseGain.gain.exponentialRampToValueAtTime(strength, now + time + 0.002);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + time + duration);
-    noiseSource.buffer = noiseBuffer;
-    noiseSource.connect(filter).connect(noiseGain).connect(master);
-    noiseSource.start(now + time);
-    noiseSource.stop(now + time + duration + 0.015);
-
-    const body = context.createOscillator();
-    const bodyGain = context.createGain();
-    body.type = "sine";
-    body.frequency.setValueAtTime(final ? 260 : 410 + Math.random() * 90, now + time);
-    body.frequency.exponentialRampToValueAtTime(final ? 145 : 240, now + time + duration);
-    bodyGain.gain.setValueAtTime(0.0001, now + time);
-    bodyGain.gain.exponentialRampToValueAtTime(final ? 0.032 : 0.014, now + time + 0.004);
-    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + time + duration * 1.35);
-    body.connect(bodyGain).connect(master);
-    body.start(now + time);
-    body.stop(now + time + duration * 1.45);
-  };
-
-  [
-    { time: 0.04, brightness: 1950, strength: 0.024, duration: 0.04 },
-    { time: 0.15, brightness: 1660, strength: 0.019, duration: 0.045 },
-    { time: 0.29, brightness: 1810, strength: 0.023, duration: 0.043 },
-    { time: 0.46, brightness: 1420, strength: 0.018, duration: 0.05 },
-    { time: 0.65, brightness: 1180, strength: 0.016, duration: 0.058 },
-  ].forEach(({ time, brightness, strength, duration }) => impact(time, brightness, strength, duration));
-  impact(0.84, 920, 0.048, 0.085, true);
-  window.setTimeout(() => void context.close(), 1150);
-}
-
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material) {
   const discGeometry = new THREE.CircleGeometry(0.145, 48);
   const depth = 1.408;
@@ -100,15 +43,13 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
   });
 }
 
-function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
+function DiceRender({ angles }: { angles: { x: number; y: number } }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const targetRef = useRef(new THREE.Euler(0, 0, 0));
-  const rollingUntil = useRef(0);
 
   useEffect(() => {
     targetRef.current.set(THREE.MathUtils.degToRad(angles.x), THREE.MathUtils.degToRad(angles.y), 0);
-    if (rolling) rollingUntil.current = performance.now() + 920;
-  }, [angles, rolling]);
+  }, [angles]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -211,38 +152,6 @@ export default function Home() {
   const [value, setValue] = useState<DiceValue>(1);
   const [rolling, setRolling] = useState(false);
   const [angles, setAngles] = useState({ x: 0, y: 0 });
-  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("dice6-sound") !== "off");
-  const [hapticsEnabled, setHapticsEnabled] = useState(() => localStorage.getItem("dice6-haptics") !== "off");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showGestureHint, setShowGestureHint] = useState(() => localStorage.getItem("dice6-gesture-hint") !== "seen");
-  const longPressTimer = useRef<number | null>(null);
-  const longPressTriggered = useRef(false);
-
-  useEffect(() => {
-    localStorage.setItem("dice6-sound", soundEnabled ? "on" : "off");
-  }, [soundEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem("dice6-haptics", hapticsEnabled ? "on" : "off");
-  }, [hapticsEnabled]);
-
-  const clearLongPress = useCallback(() => {
-    if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current);
-    longPressTimer.current = null;
-  }, []);
-
-  useEffect(() => () => clearLongPress(), [clearLongPress]);
-
-  const acknowledgeGestureHint = useCallback(() => {
-    localStorage.setItem("dice6-gesture-hint", "seen");
-    setShowGestureHint(false);
-  }, []);
-
-  useEffect(() => {
-    if (!showGestureHint) return;
-    const timer = window.setTimeout(acknowledgeGestureHint, 3600);
-    return () => window.clearTimeout(timer);
-  }, [acknowledgeGestureHint, showGestureHint]);
 
   const roll = useCallback(() => {
     if (rolling) return;
@@ -253,13 +162,10 @@ export default function Home() {
     setRolling(true);
     setValue(next);
     setAngles({ x: target.x + baseX + 720, y: target.y + baseY + 1080 });
-    if (hapticsEnabled) navigator.vibrate?.(8);
-    if (soundEnabled) playDiceSound();
     window.setTimeout(() => {
-      if (hapticsEnabled) navigator.vibrate?.([6, 24, 12]);
       setRolling(false);
     }, 920);
-  }, [angles, hapticsEnabled, rolling, soundEnabled]);
+  }, [angles, rolling]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -267,60 +173,18 @@ export default function Home() {
         event.preventDefault();
         roll();
       }
-      if ((event.key === "s" || event.key === "S") && !rolling) {
-        event.preventDefault();
-        acknowledgeGestureHint();
-        setSettingsOpen(true);
-      }
-      if (event.key === "Escape") setSettingsOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [acknowledgeGestureHint, roll, rolling]);
+  }, [roll]);
 
   const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷骰子，当前为 ${value} 点`), [rolling, value]);
 
-  const startLongPress = () => {
-    if (rolling) return;
-    longPressTriggered.current = false;
-    longPressTimer.current = window.setTimeout(() => {
-      longPressTriggered.current = true;
-      acknowledgeGestureHint();
-      setSettingsOpen(true);
-      if (hapticsEnabled) navigator.vibrate?.(8);
-    }, 650);
-  };
-
-  const handleDiceClick = () => {
-    if (longPressTriggered.current) {
-      longPressTriggered.current = false;
-      return;
-    }
-    roll();
-  };
-
   return (
     <main className="black-void">
-      <button className="die-button" type="button" onClick={handleDiceClick} onPointerDown={startLongPress} onPointerUp={clearLongPress} onPointerLeave={clearLongPress} onPointerCancel={clearLongPress} onContextMenu={(event) => event.preventDefault()} disabled={rolling} aria-label={currentLabel} aria-describedby="gesture-hint">
-        <DiceRender angles={angles} rolling={rolling} />
+      <button className="die-button" type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
+        <DiceRender angles={angles} />
       </button>
-      <span id="gesture-hint" className="sr-only">轻触投掷骰子。长按骰子可打开反馈设置；使用键盘时按 S 打开设置。</span>
-      {showGestureHint && <span className="gesture-hint" aria-hidden="true">长按骰子 · 反馈设置</span>}
-      {settingsOpen && (
-        <div className="settings-layer" role="presentation">
-          <button className="settings-scrim" type="button" onClick={() => setSettingsOpen(false)} aria-label="关闭反馈设置" />
-          <section className="settings-sheet" role="dialog" aria-modal="true" aria-label="投掷反馈设置">
-            <header><span>FEEDBACK</span><button type="button" onClick={() => setSettingsOpen(false)} aria-label="关闭"><X size={16} strokeWidth={1.7} /></button></header>
-            <button className="setting-row" type="button" onClick={() => setSoundEnabled((enabled) => !enabled)} aria-pressed={soundEnabled}>
-              {soundEnabled ? <Volume2 size={17} strokeWidth={1.6} /> : <VolumeX size={17} strokeWidth={1.6} />}<span>音效</span><i>{soundEnabled ? "开" : "关"}</i>
-            </button>
-            <button className="setting-row" type="button" onClick={() => setHapticsEnabled((enabled) => !enabled)} aria-pressed={hapticsEnabled}>
-              <Vibrate size={17} strokeWidth={1.6} /><span>震动</span><i>{hapticsEnabled ? "开" : "关"}</i>
-            </button>
-            <p>长按骰子以打开此设置</p>
-          </section>
-        </div>
-      )}
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${value} 点`}</span>
     </main>
   );
