@@ -26,23 +26,6 @@ const pipPoints: Record<DiceValue, [number, number][]> = {
   6: [[-1, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [1, -1]],
 };
 
-function createShadowTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 160;
-  canvas.height = 160;
-  const context = canvas.getContext("2d");
-  if (!context) return new THREE.Texture();
-  const gradient = context.createRadialGradient(80, 80, 2, 80, 80, 78);
-  gradient.addColorStop(0, "rgba(172, 208, 224, 0.54)");
-  gradient.addColorStop(0.34, "rgba(111, 148, 165, 0.22)");
-  gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 160, 160);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
 function playDiceSound() {
   const AudioConstructor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioConstructor) return;
@@ -104,22 +87,20 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     camera.position.set(0, 0.72, 8.65);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.55;
+    renderer.toneMappingExposure = 1.12;
     host.appendChild(renderer.domElement);
 
     const die = new THREE.Group();
     die.rotation.set(-0.28, 0.48, 0);
     scene.add(die);
 
-    const ceramic = new THREE.MeshPhysicalMaterial({
+    const ceramic = new THREE.MeshStandardMaterial({
       color: 0xf7fcff,
-      roughness: 0.3,
+      roughness: 0.46,
       metalness: 0,
-      clearcoat: 0.12,
-      clearcoatRoughness: 0.3,
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x090a0b, roughness: 0.32, metalness: 0 });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 12, 0.44), ceramic);
@@ -130,14 +111,6 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     addPips(die, 4, 4, pipMaterial);
     addPips(die, 5, 5, pipMaterial);
     addPips(die, 6, 6, pipMaterial);
-
-    const shadowTexture = createShadowTexture();
-    const shadowMaterial = new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, opacity: 0.9 });
-    const groundShadow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.2), shadowMaterial);
-    groundShadow.rotation.x = -Math.PI / 2;
-    groundShadow.position.y = -1.49;
-    groundShadow.scale.set(1.12, 0.64, 1);
-    scene.add(groundShadow);
 
     const keyLight = new THREE.DirectionalLight(0xffffff, 5.5);
     keyLight.position.set(-3.5, 4.2, 6);
@@ -151,7 +124,9 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     scene.add(new THREE.AmbientLight(0xffffff, 1.45));
 
     const resize = () => {
-      const { width, height } = host.getBoundingClientRect();
+      const bounds = host.getBoundingClientRect();
+      const width = Math.max(1, bounds.width || 300);
+      const height = Math.max(1, bounds.height || width);
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
@@ -159,20 +134,24 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
+    renderer.render(scene, camera);
 
     let frameId = 0;
+    let previousTime = performance.now();
+    let lastRenderTime = 0;
     const animate = (now: number) => {
       frameId = requestAnimationFrame(animate);
+      if (now - lastRenderTime < 22) return;
+      const delta = Math.min(0.04, Math.max(0.001, (now - previousTime) / 1000));
+      previousTime = now;
+      lastRenderTime = now;
       const target = targetRef.current;
-      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, 10, 1 / 60);
-      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, 10, 1 / 60);
+      die.rotation.x = THREE.MathUtils.damp(die.rotation.x, target.x, 11, delta);
+      die.rotation.y = THREE.MathUtils.damp(die.rotation.y, target.y, 11, delta);
       const remaining = Math.max(0, rollingUntil.current - now);
       const progress = 1 - remaining / 920;
-      const lift = remaining ? Math.sin(progress * Math.PI) : 0;
-      die.position.y = lift * 0.22;
-      die.scale.setScalar(1 - lift * 0.018);
-      groundShadow.scale.set(1.12 - lift * 0.32, 0.64 - lift * 0.19, 1);
-      shadowMaterial.opacity = 0.88 - lift * 0.56;
+      die.position.y = 0;
+      die.scale.setScalar(1);
       renderer.render(scene, camera);
     };
     frameId = requestAnimationFrame(animate);
@@ -183,9 +162,6 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       body.geometry.dispose();
       ceramic.dispose();
       pipMaterial.dispose();
-      groundShadow.geometry.dispose();
-      shadowMaterial.dispose();
-      shadowTexture.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -233,8 +209,7 @@ export default function Home() {
 
   return (
     <main className="black-void">
-      <button className={`die-button ${rolling ? "is-rolling" : ""}`} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
-        <span className="ambient-contact-shadow" aria-hidden="true" />
+      <button className="die-button" type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
         <DiceRender angles={angles} rolling={rolling} />
       </button>
       <aside className="recent" aria-label="最近投掷记录">
