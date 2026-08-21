@@ -53,7 +53,7 @@ function playDiceSound() {
 }
 
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material) {
-  const discGeometry = new THREE.CircleGeometry(0.145, 40);
+  const discGeometry = new THREE.CircleGeometry(0.145, 48);
   const depth = 1.408;
   const spacing = 0.57;
 
@@ -88,7 +88,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     camera.position.set(0, 0, 8.65);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
@@ -106,7 +106,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       clearcoatRoughness: 0.3,
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x090a0b, roughness: 0.32, metalness: 0 });
-    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 16, 0.52), ceramic);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 18, 0.52), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial);
     addPips(die, 2, 2, pipMaterial);
@@ -134,6 +134,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       const bounds = host.getBoundingClientRect();
       const width = Math.max(1, bounds.width || 300);
       const height = Math.max(1, bounds.height || width);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
