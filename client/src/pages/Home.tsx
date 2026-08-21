@@ -5,11 +5,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, Volume2, VolumeX } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 const EXTENDED_CONTROLS_ENABLED = false;
+const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-4_c619d080.mp3";
 
 const faceAngles: Record<DiceValue, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
@@ -198,7 +199,11 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
   const [showIntroPulse, setShowIntroPulse] = useState(() => localStorage.getItem("dice6-intro-pulse") !== "seen");
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("dice6-sound-enabled") === "true");
+  const [soundControlVisible, setSoundControlVisible] = useState(false);
   const fullscreenHideTimer = useRef<number | null>(null);
+  const soundHideTimer = useRef<number | null>(null);
+  const diceAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const triggerLandingHaptic = useCallback(() => {
     if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
@@ -208,6 +213,33 @@ export default function Home() {
       // Unsupported browsers, including iPhone Safari, silently retain the visual-only experience.
     }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("dice6-sound-enabled", String(soundEnabled));
+    if (!soundEnabled) {
+      diceAudioRef.current?.pause();
+      diceAudioRef.current = null;
+      return;
+    }
+    const audio = new Audio(REAL_DICE_AUDIO_URL);
+    audio.preload = "auto";
+    audio.volume = 0.34;
+    diceAudioRef.current = audio;
+    return () => {
+      audio.pause();
+      audio.src = "";
+      if (diceAudioRef.current === audio) diceAudioRef.current = null;
+    };
+  }, [soundEnabled]);
+
+  const playDiceSound = useCallback(() => {
+    if (!soundEnabled || !diceAudioRef.current) return;
+    const audio = diceAudioRef.current;
+    audio.currentTime = 0;
+    void audio.play().catch(() => {
+      // Visual rolling remains available if the device declines media playback.
+    });
+  }, [soundEnabled]);
 
   const toggleFullscreen = useCallback(async () => {
     const root = rootRef.current;
@@ -236,8 +268,15 @@ export default function Home() {
     fullscreenHideTimer.current = window.setTimeout(() => setFullscreenControlVisible(false), 1500);
   }, []);
 
+  const revealSoundControl = useCallback(() => {
+    setSoundControlVisible(true);
+    if (soundHideTimer.current !== null) window.clearTimeout(soundHideTimer.current);
+    soundHideTimer.current = window.setTimeout(() => setSoundControlVisible(false), 1700);
+  }, []);
+
   useEffect(() => () => {
     if (fullscreenHideTimer.current !== null) window.clearTimeout(fullscreenHideTimer.current);
+    if (soundHideTimer.current !== null) window.clearTimeout(soundHideTimer.current);
   }, []);
 
   useEffect(() => {
@@ -267,11 +306,12 @@ export default function Home() {
     });
     setRolling(true);
     setDiceStates(nextStates);
+    playDiceSound();
     window.setTimeout(() => {
       triggerLandingHaptic();
       setRolling(false);
     }, 920);
-  }, [diceStates, rolling, triggerLandingHaptic]);
+  }, [diceStates, playDiceSound, rolling, triggerLandingHaptic]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -290,15 +330,19 @@ export default function Home() {
 
   const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷 ${diceCount} 枚骰子，当前为 ${diceStates.map((dice) => dice.value).join("、")} 点`), [diceCount, diceStates, rolling]);
 
-  const revealControlFromEdge = (event: React.PointerEvent<HTMLElement>) => {
-    if (!EXTENDED_CONTROLS_ENABLED) return;
+  const revealControlsFromEdge = (event: React.PointerEvent<HTMLElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < bounds.left + 58 || event.clientY < bounds.top + 58) revealSoundControl();
+    if (!EXTENDED_CONTROLS_ENABLED) return;
     const nearTopOrRightEdge = event.clientX > bounds.right - 56 || event.clientY < bounds.top + 56;
     if (nearTopOrRightEdge) revealFullscreenControl();
   };
 
   return (
-    <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""} ${showIntroPulse ? "intro-pulse" : ""}`} onPointerMove={revealControlFromEdge} onPointerDown={revealControlFromEdge}>
+    <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""} ${showIntroPulse ? "intro-pulse" : ""}`} onPointerMove={revealControlsFromEdge} onPointerDown={revealControlsFromEdge}>
+      <button className={`sound-button ${soundControlVisible ? "is-visible" : ""}`} type="button" onClick={() => { setSoundEnabled((enabled) => !enabled); revealSoundControl(); }} aria-label={soundEnabled ? "关闭骰子音效" : "开启骰子音效"} aria-pressed={soundEnabled} title={soundEnabled ? "关闭音效" : "开启音效"} tabIndex={soundControlVisible ? 0 : -1}>
+        {soundEnabled ? <Volume2 size={16} strokeWidth={1.6} /> : <VolumeX size={16} strokeWidth={1.6} />}
+      </button>
       {EXTENDED_CONTROLS_ENABLED && <>
         <div className={`dice-mode-picker ${fullscreenControlVisible ? "is-visible" : ""}`} role="group" aria-label="骰子数量">
           {[1, 2, 3, 4].map((count) => <button key={count} type="button" onClick={() => selectDiceCount(count)} aria-pressed={diceCount === count} tabIndex={fullscreenControlVisible ? 0 : -1}>{count}</button>)}

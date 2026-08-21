@@ -1,4 +1,4 @@
-const CACHE_NAME = "dice6-offline-v1";
+const CACHE_NAME = "dice6-offline-v2";
 const CORE_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -49,7 +49,7 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (response.ok && (request.destination === "script" || request.destination === "style" || request.destination === "image" || request.destination === "font")) {
+      if (response.ok && (request.destination === "script" || request.destination === "style" || request.destination === "image" || request.destination === "font" || request.destination === "audio")) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
       }
