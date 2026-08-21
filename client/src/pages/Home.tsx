@@ -9,6 +9,7 @@ import { History, Maximize2, Minimize2, Volume2, VolumeX } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
+type HistoryEntry = { id: string; value: DiceValue };
 const EXTENDED_CONTROLS_ENABLED = false;
 const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
 const ROLL_DURATION = 3000;
@@ -16,14 +17,23 @@ const ROLL_MOTION_DURATION = 2740;
 const HISTORY_REVEAL_DELAY = 1250;
 const MAX_HISTORY_ENTRIES = 512;
 
-function loadRollHistory(): DiceValue[] {
+function isDiceValue(value: unknown): value is DiceValue {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6;
+}
+
+function loadRollHistory(): HistoryEntry[] {
   try {
     const saved = localStorage.getItem("dice6-roll-history");
     if (!saved) return [];
     const parsed: unknown = JSON.parse(saved);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((value): value is DiceValue => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6)
+      .flatMap((entry, index): HistoryEntry[] => {
+        if (isDiceValue(entry)) return [{ id: `legacy-${index}-${entry}`, value: entry }];
+        if (typeof entry !== "object" || entry === null) return [];
+        const candidate = entry as { id?: unknown; value?: unknown };
+        return typeof candidate.id === "string" && isDiceValue(candidate.value) ? [{ id: candidate.id, value: candidate.value }] : [];
+      })
       .slice(-MAX_HISTORY_ENTRIES);
   } catch {
     return [];
@@ -211,10 +221,10 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
 
 export default function Home() {
   const rootRef = useRef<HTMLElement>(null);
-  const historyStripRef = useRef<HTMLDivElement>(null);
+  const historyStripRef = useRef<HTMLButtonElement>(null);
   const [diceCount, setDiceCount] = useState(1);
   const [diceStates, setDiceStates] = useState<DiceState[]>(() => createDiceStates(1));
-  const [rollHistory, setRollHistory] = useState<DiceValue[]>(loadRollHistory);
+  const [rollHistory, setRollHistory] = useState<HistoryEntry[]>(loadRollHistory);
   const [historyVisible, setHistoryVisible] = useState(() => localStorage.getItem("dice6-history-visible") !== "false");
   const [rolling, setRolling] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -347,7 +357,8 @@ export default function Home() {
     setDiceStates(nextStates);
     playDiceSound();
     window.setTimeout(() => {
-      setRollHistory((history) => [...history, ...nextStates.map((dice) => dice.value)].slice(-MAX_HISTORY_ENTRIES));
+      const createdAt = Date.now();
+      setRollHistory((history) => [...history, ...nextStates.map((dice, index) => ({ id: `${createdAt}-${index}-${dice.value}`, value: dice.value }))].slice(-MAX_HISTORY_ENTRIES));
     }, HISTORY_REVEAL_DELAY);
     window.setTimeout(() => {
       triggerLandingHaptic();
@@ -404,11 +415,11 @@ export default function Home() {
         ))}
       </div>
       {historyVisible && rollHistory.length > 0 && <section className="history-panel" aria-label={`投掷历史，共 ${rollHistory.length} 次，最新结果在右侧`}>
-        <div ref={historyStripRef} className="history-viewport">
+        <button ref={historyStripRef} className="history-viewport" type="button" onClick={() => setRollHistory([])} aria-label={`轻触清空投掷历史，共 ${rollHistory.length} 次`} title="轻触清空历史">
           <div className="history-track">
-            {rollHistory.map((value, index) => <span className="history-value" key={`${index}-${value}`} style={{ opacity: 0.12 + 0.88 * ((index + 1) / rollHistory.length) ** 1.7 }}>{value}</span>)}
+            {rollHistory.map((entry, index) => <span className={`history-value ${index === rollHistory.length - 1 ? "is-new" : ""}`} key={entry.id} style={{ opacity: 0.12 + 0.88 * ((index + 1) / rollHistory.length) ** 1.7 }}>{entry.value}</span>)}
           </div>
-        </div>
+        </button>
       </section>}
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${diceStates.map((dice) => dice.value).join("、")} 点`}</span>
     </main>
