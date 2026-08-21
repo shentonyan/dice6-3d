@@ -171,7 +171,6 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
 
 export default function Home() {
   const [value, setValue] = useState<DiceValue>(1);
-  const [history, setHistory] = useState<DiceValue[]>([]);
   const [rolling, setRolling] = useState(false);
   const [angles, setAngles] = useState({ x: 0, y: 0 });
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("dice6-sound") !== "off");
@@ -199,7 +198,6 @@ export default function Home() {
     window.setTimeout(() => {
       if (hapticsEnabled) navigator.vibrate?.([6, 24, 12]);
       setRolling(false);
-      setHistory((items) => [next, ...items].slice(0, 6));
     }, 920);
   }, [angles, hapticsEnabled, rolling, soundEnabled]);
 
@@ -229,14 +227,6 @@ export default function Home() {
       <button className="die-button" type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
         <DiceRender angles={angles} rolling={rolling} />
       </button>
-      <aside className="recent" aria-label="最近投掷记录">
-        <button className="recent-clear" type="button" onClick={() => setHistory([])} disabled={!history.length} aria-label="清空 Recent 记录" title="轻触清空记录">
-          <span>RECENT</span>{history.length > 0 && <i aria-hidden="true">×</i>}
-        </button>
-        <span className="recent-values">
-          {history.length ? history.map((item, index) => <i key={`${item}-${index}`}>{item}</i>) : <i className="recent-empty">—</i>}
-        </span>
-      </aside>
       <span className="sr-only" aria-live="polite">{rolling ? "骰子投掷中" : `当前骰子为 ${value} 点`}</span>
     </main>
   );
