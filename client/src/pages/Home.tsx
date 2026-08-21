@@ -29,7 +29,7 @@ const pipPoints: Record<DiceValue, [number, number][]> = {
 
 function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material: THREE.Material, rimMaterial: THREE.Material) {
   const discGeometry = new THREE.CircleGeometry(0.145, 48);
-  const rimGeometry = new THREE.RingGeometry(0.145, 0.173, 48);
+  const rimGeometry = new THREE.RingGeometry(0.145, 0.165, 48);
   const depth = 1.405;
   const spacing = 0.57;
 
@@ -94,7 +94,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       clearcoatRoughness: 0.36,
     });
     const pipMaterial = new THREE.MeshStandardMaterial({ color: 0x111416, roughness: 0.48, metalness: 0 });
-    const pipRimMaterial = new THREE.MeshBasicMaterial({ color: 0x6f797e, transparent: true, opacity: 0.16, side: THREE.DoubleSide });
+    const pipRimMaterial = new THREE.MeshBasicMaterial({ color: 0x87949a, transparent: true, opacity: 0.075, side: THREE.DoubleSide });
     const body = new THREE.Mesh(new RoundedBoxGeometry(2.8, 2.8, 2.8, 18, 0.52), ceramic);
     die.add(body);
     addPips(die, 1, 1, pipMaterial, pipRimMaterial);
@@ -183,6 +183,15 @@ export default function Home() {
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
   const fullscreenHideTimer = useRef<number | null>(null);
 
+  const triggerLandingHaptic = useCallback(() => {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    try {
+      navigator.vibrate(10);
+    } catch {
+      // Unsupported browsers, including iPhone Safari, silently retain the visual-only experience.
+    }
+  }, []);
+
   const toggleFullscreen = useCallback(async () => {
     const root = rootRef.current;
     if (!root) return;
@@ -224,9 +233,10 @@ export default function Home() {
     setValue(next);
     setAngles({ x: target.x + baseX + 720, y: target.y + baseY + 1080 });
     window.setTimeout(() => {
+      triggerLandingHaptic();
       setRolling(false);
     }, 1040);
-  }, [angles, rolling]);
+  }, [angles, rolling, triggerLandingHaptic]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
