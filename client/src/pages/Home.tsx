@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { Maximize2, Minimize2 } from "lucide-react";
 
 type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -149,9 +150,28 @@ function DiceRender({ angles }: { angles: { x: number; y: number } }) {
 }
 
 export default function Home() {
+  const rootRef = useRef<HTMLElement>(null);
   const [value, setValue] = useState<DiceValue>(1);
   const [rolling, setRolling] = useState(false);
   const [angles, setAngles] = useState({ x: 0, y: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = useCallback(async () => {
+    const root = rootRef.current;
+    if (!root) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await root.requestFullscreen();
+    } catch {
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const updateFullscreenState = () => setIsFullscreen(document.fullscreenElement === rootRef.current);
+    document.addEventListener("fullscreenchange", updateFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreenState);
+  }, []);
 
   const roll = useCallback(() => {
     if (rolling) return;
@@ -173,15 +193,22 @@ export default function Home() {
         event.preventDefault();
         roll();
       }
+      if (event.code === "KeyF") {
+        event.preventDefault();
+        toggleFullscreen();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [roll]);
+  }, [roll, toggleFullscreen]);
 
   const currentLabel = useMemo(() => (rolling ? "骰子正在投掷" : `投掷骰子，当前为 ${value} 点`), [rolling, value]);
 
   return (
-    <main className="black-void">
+    <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""}`}>
+      <button className="fullscreen-button" type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"}>
+        {isFullscreen ? <Minimize2 size={17} strokeWidth={1.5} /> : <Maximize2 size={17} strokeWidth={1.5} />}
+      </button>
       <button className={`die-button ${rolling ? "is-rolling" : ""}`} type="button" onClick={roll} disabled={rolling} aria-label={currentLabel}>
         <DiceRender angles={angles} />
       </button>
