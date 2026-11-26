@@ -11,7 +11,7 @@ type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
 type DiceState = { value: DiceValue; angles: { x: number; y: number } };
 type HistoryEntry = { id: string; value: DiceValue };
 const EXTENDED_CONTROLS_ENABLED = false;
-const REAL_DICE_AUDIO_URL = "/manus-storage/dice-wood-3_8e847f4c.mp3";
+const REAL_DICE_AUDIO_URL = "/media/dice-wood.mp3";
 const ROLL_DURATION = 2100;
 const ROLL_MOTION_DURATION = 1840;
 const HISTORY_REVEAL_DELAY = 1250;
@@ -19,6 +19,22 @@ const MAX_HISTORY_ENTRIES = 512;
 
 function isDiceValue(value: unknown): value is DiceValue {
   return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6;
+}
+
+function getStorageItem(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function setStorageItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    return;
+  }
 }
 
 function loadRollHistory(): HistoryEntry[] {
@@ -90,10 +106,13 @@ function addPips(group: THREE.Group, value: DiceValue, face: DiceValue, material
 function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rolling: boolean }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const targetRef = useRef(new THREE.Euler(0, 0, 0));
+  const rollingRef = useRef(rolling);
   const rollStartedAt = useRef(0);
   const driftRef = useRef({ x: 0, y: 0, phase: 0 });
+  const invalidateRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
+    rollingRef.current = rolling;
     targetRef.current.set(THREE.MathUtils.degToRad(angles.x), THREE.MathUtils.degToRad(angles.y), 0);
     if (rolling) {
       rollStartedAt.current = performance.now();
@@ -103,6 +122,7 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
         phase: Math.random() * 0.45,
       };
     }
+    invalidateRef.current();
   }, [angles, rolling]);
 
   useEffect(() => {
@@ -158,35 +178,15 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
     scene.add(topGlow, topGlow.target);
     scene.add(new THREE.HemisphereLight(0xf8fafb, 0xe9eff1, 1.55));
 
-    const resize = () => {
-      const bounds = host.getBoundingClientRect();
-      const width = Math.max(1, bounds.width || 300);
-      const height = Math.max(1, bounds.height || width);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.setSize(width, height, false);
-      const pipScale = THREE.MathUtils.clamp(width / 320, 1.06, 1.2);
-      pipMarks.forEach((pip) => pip.scale.setScalar(pipScale));
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(host);
-    resize();
-    renderer.render(scene, camera);
-
     let frameId = 0;
     let previousTime = performance.now();
-    let lastRenderTime = 0;
     const animate = (now: number) => {
-      frameId = requestAnimationFrame(animate);
-      if (now - lastRenderTime < 22) return;
       const delta = Math.min(0.04, Math.max(0.001, (now - previousTime) / 1000));
       previousTime = now;
-      lastRenderTime = now;
       const target = targetRef.current;
       const elapsed = now - rollStartedAt.current;
-      const isRolling = rolling && elapsed < ROLL_MOTION_DURATION;
-      const isSettling = rolling && elapsed >= ROLL_MOTION_DURATION && elapsed < ROLL_DURATION;
+      const isRolling = rollingRef.current && elapsed < ROLL_MOTION_DURATION;
+      const isSettling = rollingRef.current && elapsed >= ROLL_MOTION_DURATION && elapsed < ROLL_DURATION;
       const progress = isRolling ? Math.min(elapsed / ROLL_MOTION_DURATION, 1) : 1;
       const pauseFactor = isRolling && progress > 0.44 && progress < 0.56 ? 0.16 : 1;
       const drift = driftRef.current;
@@ -201,12 +201,54 @@ function DiceRender({ angles, rolling }: { angles: { x: number; y: number }; rol
       die.rotation.z = THREE.MathUtils.damp(die.rotation.z, isRolling ? Math.sin((progress + drift.phase) * Math.PI * 2) * 0.035 * (1 - progress) : 0, isSettling ? 32 : 10, delta);
       die.scale.setScalar(1 - landingCompression * 0.006);
       renderer.render(scene, camera);
+
+      const unsettled =
+        Math.abs(die.rotation.x - target.x) + Math.abs(die.rotation.y - target.y) + Math.abs(die.rotation.z) > 0.001 ||
+        Math.abs(die.position.x) + Math.abs(die.position.y) > 0.001;
+      if (rollingRef.current || unsettled) {
+        frameId = requestAnimationFrame(animate);
+      } else {
+        frameId = 0;
+      }
     };
-    frameId = requestAnimationFrame(animate);
+    const requestRender = () => {
+      if (frameId || document.hidden) return;
+      previousTime = performance.now();
+      frameId = requestAnimationFrame(animate);
+    };
+    invalidateRef.current = requestRender;
+
+    const resize = () => {
+      const bounds = host.getBoundingClientRect();
+      const width = Math.max(1, bounds.width || 300);
+      const height = Math.max(1, bounds.height || width);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height, false);
+      const pipScale = THREE.MathUtils.clamp(width / 320, 1.06, 1.2);
+      pipMarks.forEach((pip) => pip.scale.setScalar(pipScale));
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      requestRender();
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(host);
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(frameId);
+        frameId = 0;
+      } else {
+        requestRender();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    resize();
+    renderer.render(scene, camera);
 
     return () => {
       cancelAnimationFrame(frameId);
       observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      invalidateRef.current = () => undefined;
       body.geometry.dispose();
       ceramic.dispose();
       pipMaterial.dispose();
@@ -225,12 +267,12 @@ export default function Home() {
   const [diceCount, setDiceCount] = useState(1);
   const [diceStates, setDiceStates] = useState<DiceState[]>(() => createDiceStates(1));
   const [rollHistory, setRollHistory] = useState<HistoryEntry[]>(loadRollHistory);
-  const [historyVisible, setHistoryVisible] = useState(() => localStorage.getItem("dice6-history-visible") !== "false");
+  const [historyVisible, setHistoryVisible] = useState(() => getStorageItem("dice6-history-visible") !== "false");
   const [rolling, setRolling] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenControlVisible, setFullscreenControlVisible] = useState(false);
-  const [showIntroPulse, setShowIntroPulse] = useState(() => localStorage.getItem("dice6-intro-pulse") !== "seen");
-  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("dice6-sound-enabled") === "true");
+  const [showIntroPulse, setShowIntroPulse] = useState(() => getStorageItem("dice6-intro-pulse") !== "seen");
+  const [soundEnabled, setSoundEnabled] = useState(() => getStorageItem("dice6-sound-enabled") === "true");
   const [soundControlVisible, setSoundControlVisible] = useState(false);
   const fullscreenHideTimer = useRef<number | null>(null);
   const soundHideTimer = useRef<number | null>(null);
@@ -246,7 +288,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("dice6-sound-enabled", String(soundEnabled));
+    setStorageItem("dice6-sound-enabled", String(soundEnabled));
     if (!soundEnabled) {
       diceAudioRef.current?.pause();
       diceAudioRef.current = null;
@@ -313,7 +355,7 @@ export default function Home() {
   useEffect(() => {
     if (!showIntroPulse) return;
     const timer = window.setTimeout(() => {
-      localStorage.setItem("dice6-intro-pulse", "seen");
+      setStorageItem("dice6-intro-pulse", "seen");
       setShowIntroPulse(false);
     }, 1800);
     return () => window.clearTimeout(timer);
@@ -328,13 +370,13 @@ export default function Home() {
     if (!rollHistory.length) return;
     const frame = window.requestAnimationFrame(() => {
       const strip = historyStripRef.current;
-      if (strip) strip.scrollTo({ left: strip.scrollWidth, behavior: "smooth" });
+      if (strip) strip.scrollTo({ left: strip.scrollWidth, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [rollHistory]);
 
   useEffect(() => {
-    localStorage.setItem("dice6-history-visible", String(historyVisible));
+    setStorageItem("dice6-history-visible", String(historyVisible));
   }, [historyVisible]);
 
   const selectDiceCount = (count: number) => {
@@ -368,6 +410,9 @@ export default function Home() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("button, a, input, textarea, select, [contenteditable='true']"))) return;
       if (event.code === "Space" || event.code === "Enter") {
         event.preventDefault();
         roll();
@@ -393,17 +438,17 @@ export default function Home() {
 
   return (
     <main ref={rootRef} className={`black-void ${isFullscreen ? "is-fullscreen" : ""} ${showIntroPulse ? "intro-pulse" : ""}`} onPointerMove={revealControlsFromEdge} onPointerDown={revealControlsFromEdge}>
-      <button className={`sound-button ${soundControlVisible ? "is-visible" : ""}`} type="button" onClick={() => { setSoundEnabled((enabled) => !enabled); revealSoundControl(); }} aria-label={soundEnabled ? "关闭骰子音效" : "开启骰子音效"} aria-pressed={soundEnabled} title={soundEnabled ? "关闭音效" : "开启音效"} tabIndex={soundControlVisible ? 0 : -1}>
+      <button className={`sound-button ${soundControlVisible ? "is-visible" : ""}`} type="button" onClick={() => { setSoundEnabled((enabled) => !enabled); revealSoundControl(); }} aria-label={soundEnabled ? "关闭骰子音效" : "开启骰子音效"} aria-pressed={soundEnabled} title={soundEnabled ? "关闭音效" : "开启音效"} >
         {soundEnabled ? <Volume2 size={16} strokeWidth={1.6} /> : <VolumeX size={16} strokeWidth={1.6} />}
       </button>
-      <button className={`history-toggle ${soundControlVisible ? "is-visible" : ""} ${historyVisible ? "" : "is-off"}`} type="button" onClick={() => { setHistoryVisible((visible) => !visible); revealSoundControl(); }} aria-label={historyVisible ? "隐藏投掷历史" : "显示投掷历史"} aria-pressed={historyVisible} title={historyVisible ? "隐藏历史" : "显示历史"} tabIndex={soundControlVisible ? 0 : -1}>
+      <button className={`history-toggle ${soundControlVisible ? "is-visible" : ""} ${historyVisible ? "" : "is-off"}`} type="button" onClick={() => { setHistoryVisible((visible) => !visible); revealSoundControl(); }} aria-label={historyVisible ? "隐藏投掷历史" : "显示投掷历史"} aria-pressed={historyVisible} title={historyVisible ? "隐藏历史" : "显示历史"} >
         <History size={16} strokeWidth={1.6} />
       </button>
       {EXTENDED_CONTROLS_ENABLED && <>
         <div className={`dice-mode-picker ${fullscreenControlVisible ? "is-visible" : ""}`} role="group" aria-label="骰子数量">
-          {[1, 2, 3, 4].map((count) => <button key={count} type="button" onClick={() => selectDiceCount(count)} aria-pressed={diceCount === count} tabIndex={fullscreenControlVisible ? 0 : -1}>{count}</button>)}
+          {[1, 2, 3, 4].map((count) => <button key={count} type="button" onClick={() => selectDiceCount(count)} aria-pressed={diceCount === count} >{count}</button>)}
         </div>
-        <button className={`fullscreen-button ${fullscreenControlVisible ? "is-visible" : ""}`} type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"} tabIndex={fullscreenControlVisible ? 0 : -1}>
+        <button className={`fullscreen-button ${fullscreenControlVisible ? "is-visible" : ""}`} type="button" onClick={toggleFullscreen} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏" : "进入全屏（F）"} >
           {isFullscreen ? <Minimize2 size={17} strokeWidth={1.5} /> : <Maximize2 size={17} strokeWidth={1.5} />}
         </button>
       </>}

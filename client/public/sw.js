@@ -1,8 +1,9 @@
-const CACHE_NAME = "dice6-offline-v2";
+const CACHE_NAME = "dice6-offline-v3";
 const CORE_ASSETS = [
   "/",
   "/manifest.webmanifest",
-  "/manus-storage/dice6-ios-icon_1888bb61.png",
+  "/media/dice6-icon.png",
+  "/media/dice-wood.mp3",
 ];
 
 self.addEventListener("install", (event) => {

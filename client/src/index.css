@@ -43,5 +43,7 @@ button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 
 .black-void.intro-pulse .count-1 .die-render { animation: dice-intro-pulse 1.8s cubic-bezier(.23,1,.32,1) 1; }
 @media (min-width: 700px) and (max-width: 1023px) { .black-void { --die-canvas: min(48vw, 34rem, 72svh); }.dice-cluster.count-1, .dice-cluster.count-1 .die-button { width: min(66vw, calc(var(--die-canvas) + 9rem)); }.dice-cluster.count-2, .dice-cluster.count-3, .dice-cluster.count-4 { width: min(62vw, 40rem); } }
 @media (min-width: 1024px) { .black-void { --die-canvas: min(35vw, 38rem, 72svh); }.dice-cluster.count-1, .dice-cluster.count-1 .die-button { width: min(50vw, calc(var(--die-canvas) + 10rem)); }.dice-cluster.count-2, .dice-cluster.count-3, .dice-cluster.count-4 { width: min(48vw, 46rem); }.black-void.is-fullscreen .dice-cluster.count-2, .black-void.is-fullscreen .dice-cluster.count-3, .black-void.is-fullscreen .dice-cluster.count-4 { width: min(72vw, 56rem); } }
+.sound-button:focus-visible, .history-toggle:focus-visible, .fullscreen-button:focus-visible { opacity: .9; pointer-events: auto; }
+.dice-mode-picker:focus-within { opacity: 1; pointer-events: auto; transform: translateY(0); }
 @media (hover: hover) { .fullscreen-button.is-visible:hover, .fullscreen-button.is-visible:focus-visible { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
